@@ -3,6 +3,19 @@ import stainless.annotation._
 import stainless.collection._
 import stainless.proof.check
 
+case class SystemState(
+  a: UIntReg,
+  b: UIntReg
+)
+
+case class SystemInput(
+  enable: UIntWire
+)
+
+case class (
+  enable: UIntWire
+)
+
 case class UInt(
     width: Int,
     data: Long
@@ -61,3 +74,7 @@ case class UInt(
   }
 
 }
+
+class UIntReg extends UInt
+
+class UIntWire extends UInt
