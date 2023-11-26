@@ -1,0 +1,6 @@
+[submodule "doc/abstract"]
+	path = doc/abstract
+	url = https://github.com/CS550-Group-F23/abstract.git
+[submodule "doc/bg_review"]
+	path = doc/bg_review
+	url = https://github.com/CS550-Group-F23/bg_review.git
