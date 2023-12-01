@@ -3,6 +3,7 @@
 .metals
 .vscode
 .stainless-cache/
+.scala-build/
 project/metals.sbt
 
 # build-related
@@ -17,3 +18,5 @@ target/
 
 silex/*
 scallion/*
+
+hw/
