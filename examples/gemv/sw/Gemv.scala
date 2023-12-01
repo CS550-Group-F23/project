@@ -1,5 +1,5 @@
 //> using scala "3.2.0"
-//> using jar "stainless-library_2.13-0.9.8.1.jar"
+//> using jar "../../../lib/stainless-library_2.13-0.9.8.1.jar"
 //> using options "-Wconf:msg=pattern.*?specialized:s,msg=not.*?exhaustive:s"
 
 import stainless.lang.*
@@ -7,7 +7,7 @@ import stainless.annotation.*
 import stainless.collection.*
 import stainless.proof.check
 
-object Project {
+object Gemv {
   def matrixSizeCheck(A: List[List[BigInt]], x: List[BigInt]): Boolean = {
     A match {
       case Cons(head, tail) => head.size == x.size && matrixSizeCheck(tail, x)
