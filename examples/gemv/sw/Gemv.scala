@@ -49,6 +49,17 @@ object Gemv {
     }
   }
 
+  def takeList[T](n: BigInt, list: List[T]): List[T] = {
+    require(n >= 0 && n <= list.size)
+    if (n == 0) Nil()
+    else {
+      list match {
+        case Cons(head, tail) => Cons(head, takeList(n - 1, tail))
+        case Nil()            => assert(false)
+      }
+    }
+  }
+
   def w_in(t: BigInt)(i: BigInt)(x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && x.size >= 0)
     decreases(i)
@@ -59,13 +70,16 @@ object Gemv {
   }
 
   def indexTo(A: List[BigInt], index: BigInt): BigInt = {
-    require(A.size >= 0 && index >= 0)
+    require(A.size >= 0)
 
-    A match {
-      case Nil() => 0
-      case _ =>
-        if (index == 0) A.head
-        else indexTo(A.tail, index - 1)
+    if (index <= 0) 0
+    else {
+      A match {
+        case Nil() => 0
+        case _ =>
+          if (index == 0) A.head
+          else indexTo(A.tail, index - 1)
+      }
     }
   }
 
@@ -85,7 +99,7 @@ object Gemv {
   def y_in(
       t: BigInt
   )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0)
+    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     if (i > 0 && t > 0) y_out(t - 1)(i - 1)(A, x)
     else 0
   }
@@ -93,9 +107,17 @@ object Gemv {
   def y_out(
       t: BigInt
   )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0)
+    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
-  }
+  }.ensuring(res =>
+    (i >= x.length && res == indexTo(
+      matmul(A, x),
+      t - i
+    )) || (i < x.length && res == indexTo(
+      matmul(takeList(i + 1, A), takeList(i + 1, x)),
+      t - i
+    ))
+  )
 
   def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && matrixSizeCheck(A, x))
@@ -107,19 +129,22 @@ object Gemv {
 
     val res = matmul(A, x)
 
-    if(t < x.length) 0
-    else if(t - x.size < res.size) indexTo(res, t - x.size)
+    if (t < x.length) 0
+    else if (t - x.size < res.size) indexTo(res, t - x.size)
     else 0
   }
 
   def main(args: Array[String]): Unit = {
+    // 1 3    5
+    // 2 4    6
     val A = List(List[BigInt](1, 2), List[BigInt](3, 4))
     val x = List[BigInt](5, 6)
-    println(matmul(A, x).toString())
 
-    print("Expected\tGot\n")
-    for (t <- 0 until 10) {
-      printf("%d\t\t%d\n", output(t)(A, x), outputSpec(t)(A, x))
-    }
+    // println(matmul(A, x).toString())
+
+    // print("Expected\tGot\n")
+    // for (t <- 0 until 10) {
+    //   printf("%d\t\t%d\n", output(t)(A, x), outputSpec(t)(A, x))
+    // }
   }
 }
