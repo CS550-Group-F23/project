@@ -4,14 +4,14 @@ module array
     input clk,
     input [`DW-1:0] A [`SZ-1:0],
     input [`DW-1:0] W [`SZ-1:0],
-    output [`DW-1:0] O
-    //input ready,
-    //output valid
+    output [`DW-1:0] O,
+    input en,
+    output valid
 );
 
 wire [`DW-1:0] yout [`SZ-1:0];
 reg [`DW-1:0] yin [`SZ-1:0];
-//reg yvalid [`SZ-1:0];
+reg yvalid [`SZ-1:0];
 
 generate
     genvar i;
@@ -37,16 +37,17 @@ generate
         end
         always @(posedge clk) begin
             yin[i] <= yout[i];
-        end
-/*
             if (i == 0) begin
-                yvalid
+                yvalid[i] <= en;
+            end else begin
+                yvalid[i] <= yvalid[i-1];
             end
         end
-*/
     end
 endgenerate
 
 assign O = yin[`SZ-1];
+assign valid = yvalid[`SZ-1];
+
 
 endmodule
