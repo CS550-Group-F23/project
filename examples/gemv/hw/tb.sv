@@ -61,6 +61,23 @@ initial begin
 
     testMatmul();
 
+    A = {16'h0, 16'h0, 16'h0, 16'h6, 16'h4, 16'h2, 16'h5, 16'h3, 16'h1};
+    W = {16'h3, 16'h2, 16'h1};
+    en = 1'b1;
+    @(posedge clk);
+    @(negedge clk);
+    en = 1'b0;
+
+    testMatmul();
+
+    A = {16'h0, 16'h6, 16'h3, 16'h0, 16'h5, 16'h2, 16'h0, 16'h4, 16'h1};
+    W = {16'h0, 16'h2, 16'h1};
+    en = 1'b1;
+    @(posedge clk);
+    @(negedge clk);
+    en = 1'b0;
+
+    testMatmul();
     $finish();
 end
 

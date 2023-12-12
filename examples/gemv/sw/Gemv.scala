@@ -8,16 +8,15 @@ import stainless.collection.*
 import stainless.proof.check
 
 object Gemv {
-  def matrixSizeCheck(A: List[List[BigInt]], x: List[BigInt]): Boolean = {
-    def isRectangular(A: List[List[BigInt]]): Boolean = {
-      A match {
-        case Cons(head, Nil()) => true
-        case Cons(head, tail) =>
-          head.size == tail.head.size && isRectangular(tail)
-        case Nil() => true
-      }
+  def isRectangular(A: List[List[BigInt]]): Boolean = {
+    A match {
+      case Cons(head, Nil()) => true
+      case Cons(head, tail) =>
+        head.size == tail.head.size && isRectangular(tail)
+      case Nil() => true
     }
-
+  }
+  def matrixSizeCheck(A: List[List[BigInt]], x: List[BigInt]): Boolean = {
     A.size == x.size && isRectangular(A)
   }
 
@@ -27,7 +26,7 @@ object Gemv {
       n: BigInt
   ): List[BigInt] = {
     require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
-    decreases(n)
+    
 
     def addVector(lhs: List[BigInt], rhs: List[BigInt]): List[BigInt] = {
       require(lhs.size == rhs.size)
@@ -38,26 +37,30 @@ object Gemv {
       }
     }.ensuring(_.size == lhs.size)
 
-    def emv(k: BigInt, v: List[BigInt]): List[BigInt] = {
-      v match {
-        case Cons(head, Nil()) => Cons(k * head, Nil())
-        case Cons(head, tail)  => Cons(k * head, emv(k, tail))
-        case Nil()             => Nil()
+    def emv(k: BigInt, v: List[BigInt], n: BigInt): List[BigInt] = {
+      require(n >= 0)
+      decreases(n)
+      if (n > 0) {
+        v match {
+          case Cons(head, Nil()) => Cons(k * head, Nil())
+          case Cons(head, tail)  => Cons(k * head, emv(k, tail, n - 1))
+          case Nil()             => Nil()
+        }
+      } else {
+        Nil()
       }
-    }.ensuring(res => res.size == v.size)
+    }.ensuring(res => (v.size > n && res.size == n) || (v.size <= n && res.size == v.size))
 
-    if (n > 0) {
-      A match {
-        case Cons(head, tail) =>
-          if (tail.size == 0 || n == 1) emv(x.head, head)
-          else
-            addVector(emv(x.head, head), matmul(tail, x.tail, n - 1))
-        case Nil() => Nil()
-      }
-    } else {
-      Nil()
+    val thing = A match {
+      case Cons(head, tail) =>
+        if (tail.size == 0 || n == 1) emv(x.head, head, n)
+        else
+          addVector(emv(x.head, head, n), matmul(tail, x.tail, n))
+      case Nil() => Nil()
     }
-  }.ensuring(res => (A.head.size > n && res.size == n) || (A.head.size <= n && res.size == A.head.size))
+    //println(thing.toString())
+    thing
+  }.ensuring(res => (A.size == 0 && res.size == 0) || (A.head.size > n && res.size == n) || (A.head.size <= n && res.size == A.head.size))
 
   def vecAdd(a: List[BigInt], b: List[BigInt], n: BigInt): List[BigInt] = {
     require(n >= 0 && a.size >= 0 && a.size == b.size)
@@ -73,6 +76,52 @@ object Gemv {
   }.ensuring(res =>
     (a.size > n && res.size == n) || (a.size <= n && res.size == a.size)
   )
+  
+  def lemma3[T](
+    A: List[T],
+    n: BigInt
+  ): Boolean = {
+    require(A.size > 0 && n > 0)
+    A.head == A.take(n).head
+  }.holds
+  
+  def lemma2(
+    A: List[List[BigInt]],
+    n: BigInt
+  ): Unit = {
+    require(isRectangular(A) && n >= 0)
+    A match {
+      case Cons(head, tail) => {
+        if (n > 0) {
+          check(lemma3(A, n))
+          check(A.head == A.take(n).head)
+          check(A.head.size == A.take(n).head.size)
+          lemma2(tail, n-1)
+        } else {
+          check(A.take(n) == Nil())
+        }
+      }
+      case Nil() => check(A.take(n) == Nil())
+    }
+    // if (n > 0) {
+    //   A match {
+    //     case Cons(head, Nil()) => assert(true)
+    //     case Cons(head, tail) => assert(head.size == tail.head.size)
+    //     case Nil() => assert(true)
+    //   }
+    //   lemma2(A, n- 1)
+    // } else { 
+      
+    // }
+    // A match {
+    //   case Cons(a,aa) => {
+    //     lemma2(aa, n)
+    //   }
+    //   case Nil() => {
+    //     check(takeList(n,A) == Nil())
+    //   }
+    // }
+  }.ensuring(isRectangular(A.take(n)))
 
   def lemma1(
       A: List[List[BigInt]],
@@ -82,7 +131,9 @@ object Gemv {
     require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
     decreases(n)
 
-    val a = matmul(takeList(n, A), takeList(n, x), n)
+    check(A.take(n).size == x.take(n).size)
+    lemma2(A, n)
+    val a = matmul(A.take(n),x.take(n), n)
     val b = matmul(A, x, n)
 
     if(n == 0) {
@@ -93,15 +144,15 @@ object Gemv {
           lemma1(t1, t2, n-1)
         }
         case (Nil(), Nil()) => {
-          assert(takeList(n, A) == Nil())
-          assert(takeList(n, x) == Nil())
+          assert(A.take(n) == Nil())
+          assert(x.take(n) == Nil())
           assert(b == Nil())
         }
       }
     }
-  }.ensuring(matmul(takeList(n, A), takeList(n, x), n) == matmul(A, x, n))
+  }.ensuring(matmul(A.take(n), x.take(n), n) == matmul(A, x, n))
 
-  def takeList[T](n: BigInt, list: List[T]): List[T] = {
+  /*def takeList[T](n: BigInt, list: List[T]): List[T] = {
     require(n >= 0)
     decreases(n)
     if (n == 0) Nil()
@@ -113,7 +164,7 @@ object Gemv {
     }
   }.ensuring(res =>
     (n <= list.size && res.size == n) || (n > list.size && res.size == list.size)
-  )
+  )*/
 
   def indexTo(A: List[BigInt], index: BigInt): BigInt = {
     require(A.size >= 0)
@@ -184,10 +235,10 @@ object Gemv {
   def main(args: Array[String]): Unit = {
     // 1 3    5
     // 2 4    6
-    val A = Cons[List[BigInt]](Nil[BigInt](), Nil[List[BigInt]]()) // List[BigInt](1)
-    val x = Cons[BigInt](BigInt("0"), Nil[BigInt]()) // List[BigInt](5)
-
-    // println(matmul(A, x, 1))
+    //val A = Cons[List[BigInt]](Cons[BigInt](BigInt("0"), Cons[BigInt](BigInt("0"), Nil[BigInt]())), Nil[List[BigInt]]()) // List[BigInt](1)
+    //val x = Cons[BigInt](BigInt("-1"), Nil[BigInt]()) // List[BigInt](5)
+//
+    //println(matmul(A, x, 1))
 
     // println(matmul(A, x).toString())
 
