@@ -21,8 +21,13 @@ object Gemv {
     A.size == x.size && isRectangular(A)
   }
 
-  def matmul(A: List[List[BigInt]], x: List[BigInt]): List[BigInt] = {
-    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x))
+  def matmul(
+      A: List[List[BigInt]],
+      x: List[BigInt],
+      n: BigInt
+  ): List[BigInt] = {
+    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
+    decreases(n)
 
     def addVector(lhs: List[BigInt], rhs: List[BigInt]): List[BigInt] = {
       require(lhs.size == rhs.size)
@@ -41,33 +46,74 @@ object Gemv {
       }
     }.ensuring(res => res.size == v.size)
 
-    A match {
-      case Cons(head, Nil()) => emv(x.head, head)
-      case Cons(head, tail) =>
-        addVector(emv(x.head, head), matmul(tail, x.tail))
-      case Nil() => Nil()
+    if (n > 0) {
+      A match {
+        case Cons(head, tail) =>
+          if (tail.size == 0 || n == 1) emv(x.head, head)
+          else
+            addVector(emv(x.head, head), matmul(tail, x.tail, n - 1))
+        case Nil() => Nil()
+      }
+    } else {
+      Nil()
     }
-  }
+  }.ensuring(res => (A.head.size > n && res.size == n) || (A.head.size <= n && res.size == A.head.size))
+
+  def vecAdd(a: List[BigInt], b: List[BigInt], n: BigInt): List[BigInt] = {
+    require(n >= 0 && a.size >= 0 && a.size == b.size)
+    decreases(n)
+
+    if (n == 0) Nil()
+    else
+      (a, b) match {
+        case (Cons(h1, t1), Cons(h2, t2)) =>
+          Cons(h1 + h2, vecAdd(t1, t2, n - 1))
+        case (Nil(), Nil()) => Nil()
+      }
+  }.ensuring(res =>
+    (a.size > n && res.size == n) || (a.size <= n && res.size == a.size)
+  )
+
+  def lemma1(
+      A: List[List[BigInt]],
+      x: List[BigInt],
+      n: BigInt
+  ): Unit = {
+    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
+    decreases(n)
+
+    val a = matmul(takeList(n, A), takeList(n, x), n)
+    val b = matmul(A, x, n)
+
+    if(n == 0) {
+      assert(true)
+    } else {
+      (A, x) match {
+        case (Cons(h1, t1), Cons(h2, t2)) => {
+          lemma1(t1, t2, n-1)
+        }
+        case (Nil(), Nil()) => {
+          assert(takeList(n, A) == Nil())
+          assert(takeList(n, x) == Nil())
+          assert(b == Nil())
+        }
+      }
+    }
+  }.ensuring(matmul(takeList(n, A), takeList(n, x), n) == matmul(A, x, n))
 
   def takeList[T](n: BigInt, list: List[T]): List[T] = {
-    require(n >= 0 && n <= list.size)
+    require(n >= 0)
+    decreases(n)
     if (n == 0) Nil()
     else {
       list match {
         case Cons(head, tail) => Cons(head, takeList(n - 1, tail))
-        case Nil()            => assert(false)
+        case Nil()            => Nil()
       }
     }
-  }
-
-  def w_in(t: BigInt)(i: BigInt)(x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0 && x.size >= 0)
-    decreases(i)
-
-    if (i >= x.size) 0
-    else if (i == 0) x.head
-    else w_in(t)(i - 1)(x.tail)
-  }
+  }.ensuring(res =>
+    (n <= list.size && res.size == n) || (n > list.size && res.size == list.size)
+  )
 
   def indexTo(A: List[BigInt], index: BigInt): BigInt = {
     require(A.size >= 0)
@@ -83,62 +129,65 @@ object Gemv {
     }
   }
 
-  def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
-    require(t >= 0 && i >= 0 && A.size >= 0)
-    decreases(i)
+  // def w_in(t: BigInt)(i: BigInt)(x: List[BigInt]): BigInt = {
+  //   require(t >= 0 && i >= 0 && x.size >= 0)
+  //   decreases(i)
 
-    if (A.size == 0) 0
-    else if (i == 0) indexTo(A.head, t)
-    else if (i >= A.size) 0
-    else {
-      if (t == 0) 0
-      else a_in(t - 1)(i - 1)(A.tail)
-    }
-  }
+  //   if (i >= x.size) 0
+  //   else if (i == 0) x.head
+  //   else w_in(t)(i - 1)(x.tail)
+  // }
 
-  def y_in(
-      t: BigInt
-  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    if (i > 0 && t > 0) y_out(t - 1)(i - 1)(A, x)
-    else 0
-  }
+  // def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
+  //   require(t >= 0 && i >= 0 && A.size >= 0)
+  //   decreases(i)
 
-  def y_out(
-      t: BigInt
-  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
-  }.ensuring(res =>
-    (i >= x.length && res == indexTo(
-      matmul(A, x),
-      t - i
-    )) || (i < x.length && res == indexTo(
-      matmul(takeList(i + 1, A), takeList(i + 1, x)),
-      t - i
-    ))
-  )
+  //   if (A.size == 0) 0
+  //   else if (i == 0) indexTo(A.head, t)
+  //   else if (i >= A.size) 0
+  //   else {
+  //     if (t == 0) 0
+  //     else a_in(t - 1)(i - 1)(A.tail)
+  //   }
+  // }
 
-  def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && matrixSizeCheck(A, x))
-    y_in(t)(x.length)(A, x)
-  }.ensuring(res => res == outputSpec(t)(A, x))
+  // def y_in(
+  //     t: BigInt
+  // )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+  //   require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+  //   if (i > 0 && t > 0) y_out(t - 1)(i - 1)(A, x)
+  //   else 0
+  // }
 
-  def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
+  // def y_out(
+  //     t: BigInt
+  // )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+  //   require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+  //   y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
+  // }.ensuring(res => res == indexTo(matmul(A, x, i), t - i))
 
-    val res = matmul(A, x)
+  // def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+  //   require(t >= 0 && matrixSizeCheck(A, x))
+  //   y_in(t)(x.length)(A, x)
+  // }.ensuring(res => res == outputSpec(t)(A, x))
 
-    if (t < x.length) 0
-    else if (t - x.size < res.size) indexTo(res, t - x.size)
-    else 0
-  }
+  // def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+  //   require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
+
+  //   val res = matmul(A, x, x.size)
+
+  //   if (t < x.length) 0
+  //   else if (t - x.size < res.size) indexTo(res, t - x.size)
+  //   else 0
+  // }
 
   def main(args: Array[String]): Unit = {
     // 1 3    5
     // 2 4    6
-    val A = List(List[BigInt](1, 2), List[BigInt](3, 4))
-    val x = List[BigInt](5, 6)
+    val A = Cons[List[BigInt]](Nil[BigInt](), Nil[List[BigInt]]()) // List[BigInt](1)
+    val x = Cons[BigInt](BigInt("0"), Nil[BigInt]()) // List[BigInt](5)
+
+    // println(matmul(A, x, 1))
 
     // println(matmul(A, x).toString())
 
