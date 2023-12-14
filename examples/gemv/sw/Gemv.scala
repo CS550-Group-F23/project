@@ -194,16 +194,16 @@ object Gemv {
   }
 
   def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
-    //require(t >= 0 && i >= 0 && A.size >= 0)
-    //decreases(i)
+    require(t >= 0 && i >= 0 && A.size >= 0)
+    decreases(i)
 
     
     A match {
-      case Nil() => 0
+      case Nil() => BigInt(0)
       case Cons(a,aa) => { 
-        if (i == 0) 0//indexTo(a, t)
-        else if (i >= A.size || t == 0) 0
-        else a_in(t - 1)(i - 1)(aa)
+        if (i == 0) indexTo(a, t)
+        else if (i >= A.size || t == 0) BigInt(0)
+        else  a_in(t - 1)(i - 1)(aa)
       }
     }
   }.ensuring(res => res == 0)
