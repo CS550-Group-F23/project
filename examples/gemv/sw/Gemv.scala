@@ -20,47 +20,45 @@ object Gemv {
     A.size == x.size && isRectangular(A)
   }
 
+  def emv(k: BigInt, v: List[BigInt]): List[BigInt] = {
+    v match {
+      case Cons(head, Nil()) => Cons(k * head, Nil())
+      case Cons(head, tail)  => Cons(k * head, emv(k, tail))
+      case Nil()             => Nil()
+    }
+  }.ensuring(res => res.size == v.size)
+  
+  def addVector(lhs: List[BigInt], rhs: List[BigInt]): List[BigInt] = {
+    require(lhs.size == rhs.size)
+
+    (lhs, rhs) match {
+      case (Cons(h1, t1), Cons(h2, t2)) => Cons(h1 + h2, addVector(t1, t2))
+      case (Nil(), Nil())               => Nil()
+    }
+  }.ensuring(_.size == lhs.size)
+
   def matmul(
       A: List[List[BigInt]],
       x: List[BigInt],
       n: BigInt
   ): List[BigInt] = {
     require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
-    
+    decreases(n)
 
-    def addVector(lhs: List[BigInt], rhs: List[BigInt]): List[BigInt] = {
-      require(lhs.size == rhs.size)
-
-      (lhs, rhs) match {
-        case (Cons(h1, t1), Cons(h2, t2)) => Cons(h1 + h2, addVector(t1, t2))
-        case (Nil(), Nil())               => Nil()
-      }
-    }.ensuring(_.size == lhs.size)
-
-    def emv(k: BigInt, v: List[BigInt], n: BigInt): List[BigInt] = {
-      require(n >= 0)
-      decreases(n)
-      if (n > 0) {
-        v match {
-          case Cons(head, Nil()) => Cons(k * head, Nil())
-          case Cons(head, tail)  => Cons(k * head, emv(k, tail, n - 1))
-          case Nil()             => Nil()
+    if (n > 0) {
+      A match {
+        case Cons(head, tail) =>
+        if (tail.size == 0 || n == 1) emv(x.head, head)
+        else {
+            addVector(emv(x.head, head), matmul(tail, x.tail, n - 1))
         }
-      } else {
-        Nil()
+        case Nil() => Nil()
       }
-    }.ensuring(res => (v.size > n && res.size == n) || (v.size <= n && res.size == v.size))
-
-    val thing = A match {
-      case Cons(head, tail) =>
-        if (tail.size == 0 || n == 1) emv(x.head, head, n)
-        else
-          addVector(emv(x.head, head, n), matmul(tail, x.tail, n))
-      case Nil() => Nil()
+    } else {
+      Nil()
     }
     //println(thing.toString())
-    thing
-  }.ensuring(res => (A.size == 0 && res.size == 0) || (A.head.size > n && res.size == n) || (A.head.size <= n && res.size == A.head.size))
+  }.ensuring(res => (A.size == 0 && res.size == 0) || (n == 0 && res.size == 0) || (A.head.size == res.size))
 
   def vecAdd(a: List[BigInt], b: List[BigInt], n: BigInt): List[BigInt] = {
     require(n >= 0 && a.size >= 0 && a.size == b.size)
@@ -136,12 +134,15 @@ object Gemv {
     val a = matmul(A.take(n),x.take(n), n)
     val b = matmul(A, x, n)
 
-    if(n == 0) {
-      assert(true)
-    } else {
+    if (n > 0) {
       (A, x) match {
         case (Cons(h1, t1), Cons(h2, t2)) => {
           lemma1(t1, t2, n-1)
+          if (t2.size == 0 || n == 1) {
+            check(b == emv(x.head, A.head))
+          } else {
+            check(addVector(emv(h2, h1), matmul(t1, t2, n-1)) == b)
+          }
         }
         case (Nil(), Nil()) => {
           assert(A.take(n) == Nil())
@@ -149,7 +150,10 @@ object Gemv {
           assert(b == Nil())
         }
       }
+    } else {
+      assert(matmul(A,x,n) == Nil())
     }
+
   }.ensuring(matmul(A.take(n), x.take(n), n) == matmul(A, x, n))
 
   /*def takeList[T](n: BigInt, list: List[T]): List[T] = {
@@ -235,11 +239,17 @@ object Gemv {
   def main(args: Array[String]): Unit = {
     // 1 3    5
     // 2 4    6
-    //val A = Cons[List[BigInt]](Cons[BigInt](BigInt("0"), Cons[BigInt](BigInt("0"), Nil[BigInt]())), Nil[List[BigInt]]()) // List[BigInt](1)
-    //val x = Cons[BigInt](BigInt("-1"), Nil[BigInt]()) // List[BigInt](5)
+    val A = Cons[List[BigInt]](Cons[BigInt](BigInt("0"), Nil[BigInt]()), Nil[List[BigInt]]())
+    val x = Cons[BigInt](BigInt("-15"), Nil[BigInt]())
+    val n = BigInt("0")
+    //println(matmul(A,x,n) )
+    //println(matmul(A.take(n), x.take(n), n))
+    //println(matmul(A, x, n))
+    //lemma1(A,x,n)
 //
-    //println(matmul(A, x, 1))
-
+    //println(matmul(A, x, 0))
+    //println(emv(x.head, A.head))
+  
     // println(matmul(A, x).toString())
 
     // print("Expected\tGot\n")
