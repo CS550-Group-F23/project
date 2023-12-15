@@ -197,7 +197,6 @@ object Gemv {
     require(t >= 0 && i >= 0 && A.size >= 0)
     decreases(i)
 
-    
     A match {
       case Nil() => BigInt(0)
       case Cons(a,aa) => { 
@@ -206,22 +205,26 @@ object Gemv {
         else  a_in(t - 1)(i - 1)(aa)
       }
     }
-  }.ensuring(res => res == 0)
+  }.ensuring(res => res == 0 || (i <= t && i < A.size))
 
   def y_in(
       t: BigInt
   )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    if (i > 0 && t > 0) y_out(t - 1)(i - 1)(A, x)
-    else 0
-  }
+    if (i > 0 && t > 0) {
+      yout_lemma(t - 1)(i - 1)(A, x)
+      y_out(t - 1)(i - 1)(A, x)
+    }
+    else BigInt(0)
+  }.ensuring(res => res == indexTo(matmul(A, x, i),t - i) || i <= 0 || t <= 0)
 
   def y_out(
       t: BigInt
   )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
-  }.ensuring(res => res == indexTo(matmul(A, x, i+1),t - i))
+  }
+
 
   def yout_lemma(
       t: BigInt
@@ -238,31 +241,51 @@ object Gemv {
 
   def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && matrixSizeCheck(A, x))
-    lemma1(A,x,x.size)
-    y_in(t)(x.length)(A, x)
-  }.ensuring(res => res == outputSpec(t)(A, x))
+    y_in(t)(x.size)(A, x)
+  }
 
   def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
 
     val res = matmul(A, x, x.size)
 
-    if (t < x.length) 0
-    else if (t - x.size < res.size) indexTo(res,t - x.size)
+    if (t < x.size) 0
+    else if (t - x.size < res.size) {
+      indexTo(res,t - x.size)
+    }
     else 0
   }
+
+  def verifyOutput(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+    require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
+    
+    val res = matmul(A, x, x.size)
+    if (t < x.size) {
+      assert(true)
+    } else if (t - x.size < res.size) {
+      check(t > 0 && x.size > 0)
+      check(indexTo(res,t - x.size) == y_in(t)(x.size)(A, x))
+    } else {
+      check(x.size >= A.size)
+      check(a_in(t)(x.size)(A) == 0)
+      // possibly tricky part of the proof requiring induction
+      // need to prove that the systolic array stays outputting 0
+      // since i decreases with t in y_in, the t >= x.size + res.size should be an invariant
+      check(y_in(t)(x.size)(A,x) == 0)
+    }
+  }.ensuring(output(t)(A,x) == outputSpec(t)(A,x))
 
   def main(args: Array[String]): Unit = {
     // 1 3    5
     // 2 4    6
-    /*val A = List[List[BigInt]](List[BigInt](1,4,7),List[BigInt](2,5,8),List[BigInt](3,6,9))
-    val x = List[BigInt](1,2,3)
-    val n = BigInt("3")
-    for (t <- 0 until 10) {
-      for (i <- 0 until 3) {
-        printf("yout(t=%d,i=%d)=%d, ref = %d \n", t, i, y_out(BigInt(t))(BigInt(i))(A,x),  indexTo(matmul(A, x, i+1),t - i))
-      }
-    }*/
+    //val A = List[List[BigInt]](List[BigInt](1,4,7),List[BigInt](2,5,8),List[BigInt](3,6,9))
+    //val x = List[BigInt](1,2,3)
+    //val n = BigInt("3")
+    //for (t <- 0 until 10) {
+    //  for (i <- 0 until 3) {
+    //    printf("yout(t=%d,i=%d)=%d, ref = %d \n", t, i, y_out(BigInt(t))(BigInt(i))(A,x),  indexTo(matmul(A, x, i+1),t - i))
+    //  }
+    //}
     //println(matmul(A,x,n))
     //println(matmul(A.take(n), x.take(n), n))
     //println(matmul(A, x, n))
