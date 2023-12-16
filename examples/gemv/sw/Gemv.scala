@@ -205,14 +205,14 @@ object Gemv {
         else  a_in(t - 1)(i - 1)(aa)
       }
     }
-  }.ensuring(res => res == 0 || (i <= t && i < A.size))
+  }.ensuring(res => res == 0 || (i <= t && i < A.size && res == indexTo(A(i), t-i)))
 
   def y_in(
       t: BigInt
   )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     if (i > 0 && t > 0) {
-      yout_lemma(t - 1)(i - 1)(A, x)
+      // yout_lemma(t - 1)(i - 1)(A, x)
       y_out(t - 1)(i - 1)(A, x)
     }
     else BigInt(0)
@@ -226,18 +226,32 @@ object Gemv {
   }
 
 
-  def yout_lemma(
-      t: BigInt
-  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    val yout_res = y_out(t)(i)(A, x)
+  // def yout_lemma(
+  //     t: BigInt
+  // )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+  //   require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+  //   decreases(i)
+  //   val yout_res = y_out(t)(i)(A, x)
 
-    if (i > t) {
-      check(y_in(t)(i)(A, x) == 0)
-      check(a_in(t)(i)(A) == 0)
-      check(yout_res == 0)
-    }
-  }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i+1),t - i))
+  //   if (t < i) {
+  //     check(y_in(t)(i)(A, x) == 0)
+  //     check(a_in(t)(i)(A) == 0)
+  //     check(yout_res == 0)
+  //   } else {
+  //     A match {
+  //       case Nil() => check(yout_res == 0)
+  //       case Cons(head, tail) => {
+  //         // yout_lemma(t)(i-1)(A, x)
+  //         if(t < i + head.size) {
+            
+  //         }
+  //         else {
+  //           check(yout_res == 0)
+  //         }
+  //       }
+  //     }
+  //   }
+  // }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i+1),t - i))
 
   def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && matrixSizeCheck(A, x))
