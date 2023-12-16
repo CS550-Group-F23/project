@@ -27,7 +27,7 @@ object Gemv {
       case Nil()             => Nil()
     }
   }.ensuring(res => res.size == v.size)
-  
+
   def addVector(lhs: List[BigInt], rhs: List[BigInt]): List[BigInt] = {
     require(lhs.size == rhs.size)
 
@@ -48,17 +48,19 @@ object Gemv {
     if (n > 0) {
       A match {
         case Cons(head, tail) =>
-        if (tail.size == 0 || n == 1) emv(x.head, head)
-        else {
+          if (tail.size == 0 || n == 1) emv(x.head, head)
+          else {
             addVector(emv(x.head, head), matmul(tail, x.tail, n - 1))
-        }
+          }
         case Nil() => Nil()
       }
     } else {
       Nil()
     }
-    //println(thing.toString())
-  }.ensuring(res => (A.size == 0 && res.size == 0) || (n == 0 && res.size == 0) || (A.head.size == res.size))
+    // println(thing.toString())
+  }.ensuring(res =>
+    (A.size == 0 && res.size == 0) || (n == 0 && res.size == 0) || (A.head.size == res.size)
+  )
 
   def vecAdd(a: List[BigInt], b: List[BigInt], n: BigInt): List[BigInt] = {
     require(n >= 0 && a.size >= 0 && a.size == b.size)
@@ -74,18 +76,18 @@ object Gemv {
   }.ensuring(res =>
     (a.size > n && res.size == n) || (a.size <= n && res.size == a.size)
   )
-  
+
   def lemma3[T](
-    A: List[T],
-    n: BigInt
+      A: List[T],
+      n: BigInt
   ): Boolean = {
     require(A.size > 0 && n > 0)
     A.head == A.take(n).head
   }.holds
-  
+
   def lemma2(
-    A: List[List[BigInt]],
-    n: BigInt
+      A: List[List[BigInt]],
+      n: BigInt
   ): Unit = {
     require(isRectangular(A) && n >= 0)
     A match {
@@ -94,7 +96,7 @@ object Gemv {
           check(lemma3(A, n))
           check(A.head == A.take(n).head)
           check(A.head.size == A.take(n).head.size)
-          lemma2(tail, n-1)
+          lemma2(tail, n - 1)
         } else {
           check(A.take(n) == Nil())
         }
@@ -108,8 +110,8 @@ object Gemv {
     //     case Nil() => assert(true)
     //   }
     //   lemma2(A, n- 1)
-    // } else { 
-      
+    // } else {
+
     // }
     // A match {
     //   case Cons(a,aa) => {
@@ -131,17 +133,17 @@ object Gemv {
 
     check(A.take(n).size == x.take(n).size)
     lemma2(A, n)
-    val a = matmul(A.take(n),x.take(n), n)
+    val a = matmul(A.take(n), x.take(n), n)
     val b = matmul(A, x, n)
 
     if (n > 0) {
       (A, x) match {
         case (Cons(h1, t1), Cons(h2, t2)) => {
-          lemma1(t1, t2, n-1)
+          lemma1(t1, t2, n - 1)
           if (t2.size == 0 || n == 1) {
             check(b == emv(x.head, A.head))
           } else {
-            check(addVector(emv(h2, h1), matmul(t1, t2, n-1)) == b)
+            check(addVector(emv(h2, h1), matmul(t1, t2, n - 1)) == b)
           }
         }
         case (Nil(), Nil()) => {
@@ -151,7 +153,7 @@ object Gemv {
         }
       }
     } else {
-      assert(matmul(A,x,n) == Nil())
+      assert(matmul(A, x, n) == Nil())
     }
 
   }.ensuring(matmul(A.take(n), x.take(n), n) == matmul(A, x, n))
@@ -177,7 +179,7 @@ object Gemv {
     else {
       A match {
         case Nil() => 0
-        case Cons(a,aa) =>
+        case Cons(a, aa) =>
           if (index == 0) a
           else indexTo(aa, index - 1)
       }
@@ -199,13 +201,15 @@ object Gemv {
 
     A match {
       case Nil() => BigInt(0)
-      case Cons(a,aa) => { 
+      case Cons(a, aa) => {
         if (i == 0) indexTo(a, t)
         else if (i >= A.size || t == 0) BigInt(0)
-        else  a_in(t - 1)(i - 1)(aa)
+        else a_in(t - 1)(i - 1)(aa)
       }
     }
-  }.ensuring(res => res == 0 || (i <= t && i < A.size && res == indexTo(A(i), t-i)))
+  }.ensuring(res =>
+    res == 0 || (i <= t && i < A.size && res == indexTo(A(i), t - i))
+  )
 
   def y_in(
       t: BigInt
@@ -214,9 +218,8 @@ object Gemv {
     if (i > 0 && t > 0) {
       // yout_lemma(t - 1)(i - 1)(A, x)
       y_out(t - 1)(i - 1)(A, x)
-    }
-    else BigInt(0)
-  }.ensuring(res => res == indexTo(matmul(A, x, i),t - i) || i <= 0 || t <= 0)
+    } else BigInt(0)
+  }.ensuring(res => res == indexTo(matmul(A, x, i), t - i) || i <= 0 || t <= 0)
 
   def y_out(
       t: BigInt
@@ -224,7 +227,6 @@ object Gemv {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
   }
-
 
   // def yout_lemma(
   //     t: BigInt
@@ -243,7 +245,7 @@ object Gemv {
   //       case Cons(head, tail) => {
   //         // yout_lemma(t)(i-1)(A, x)
   //         if(t < i + head.size) {
-            
+
   //         }
   //         else {
   //           check(yout_res == 0)
@@ -265,49 +267,48 @@ object Gemv {
 
     if (t < x.size) 0
     else if (t - x.size < res.size) {
-      indexTo(res,t - x.size)
-    }
-    else 0
+      indexTo(res, t - x.size)
+    } else 0
   }
 
   def verifyOutput(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
-    
+
     val res = matmul(A, x, x.size)
     if (t < x.size) {
       assert(true)
     } else if (t - x.size < res.size) {
       check(t > 0 && x.size > 0)
-      check(indexTo(res,t - x.size) == y_in(t)(x.size)(A, x))
+      check(indexTo(res, t - x.size) == y_in(t)(x.size)(A, x))
     } else {
       check(x.size >= A.size)
       check(a_in(t)(x.size)(A) == 0)
       // possibly tricky part of the proof requiring induction
       // need to prove that the systolic array stays outputting 0
       // since i decreases with t in y_in, the t >= x.size + res.size should be an invariant
-      check(y_in(t)(x.size)(A,x) == 0)
+      check(y_in(t)(x.size)(A, x) == 0)
     }
-  }.ensuring(output(t)(A,x) == outputSpec(t)(A,x))
+  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))
 
   def main(args: Array[String]): Unit = {
     // 1 3    5
     // 2 4    6
-    //val A = List[List[BigInt]](List[BigInt](1,4,7),List[BigInt](2,5,8),List[BigInt](3,6,9))
-    //val x = List[BigInt](1,2,3)
-    //val n = BigInt("3")
-    //for (t <- 0 until 10) {
+    // val A = List[List[BigInt]](List[BigInt](1,4,7),List[BigInt](2,5,8),List[BigInt](3,6,9))
+    // val x = List[BigInt](1,2,3)
+    // val n = BigInt("3")
+    // for (t <- 0 until 10) {
     //  for (i <- 0 until 3) {
     //    printf("yout(t=%d,i=%d)=%d, ref = %d \n", t, i, y_out(BigInt(t))(BigInt(i))(A,x),  indexTo(matmul(A, x, i+1),t - i))
     //  }
-    //}
-    //println(matmul(A,x,n))
-    //println(matmul(A.take(n), x.take(n), n))
-    //println(matmul(A, x, n))
-    //lemma1(A,x,n)
+    // }
+    // println(matmul(A,x,n))
+    // println(matmul(A.take(n), x.take(n), n))
+    // println(matmul(A, x, n))
+    // lemma1(A,x,n)
 //
-    //println(matmul(A, x, 0))
-    //println(emv(x.head, A.head))
-  
+    // println(matmul(A, x, 0))
+    // println(emv(x.head, A.head))
+
     // println(matmul(A, x).toString())
 
     // print("Expected\tGot\n")
