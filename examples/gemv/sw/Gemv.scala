@@ -35,7 +35,19 @@ object Gemv {
       case (Cons(h1, t1), Cons(h2, t2)) => Cons(h1 + h2, addVector(t1, t2))
       case (Nil(), Nil())               => Nil()
     }
-  }.ensuring(_.size == lhs.size)
+  }.ensuring(res => res.size == lhs.size)
+
+  def addVectorLemma(lhs: List[BigInt], rhs: List[BigInt]): Unit = {
+    require(lhs.size == rhs.size)
+
+    (lhs, rhs) match {
+      case (Cons(h1, t1), Cons(h2, t2)) =>
+        assert(h1 + h2 == h2 + h1)
+        addVectorLemma(t1, t2)
+      case (Nil(), Nil()) => assert(true)
+    }
+
+  }.ensuring(addVector(lhs, rhs) == addVector(rhs, lhs))
 
   def matmul(
       A: List[List[BigInt]],
@@ -61,6 +73,34 @@ object Gemv {
   }.ensuring(res =>
     (A.size == 0 && res.size == 0) || (n == 0 && res.size == 0) || (A.head.size == res.size)
   )
+
+  def reverseLemma(
+      A: List[List[BigInt]],
+      x: List[BigInt],
+      n: BigInt
+  ): Unit = {
+    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
+    require(n >= A.size)
+    require(matrixSizeCheck(A.reverse, x.reverse))
+
+  }.ensuring(matmul(A, x, n) == matmul(A.reverse, x.reverse, n))
+
+  // def lemmaAdditivity(
+  //     A: List[List[BigInt]],
+  //     x: List[BigInt],
+  //     n: BigInt
+  // ): Unit = {
+  //   require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
+
+  //   if (n == 0) {
+  //     assert(true)
+  //   } else {
+
+  //   }
+
+  // }.ensuring(res =>
+  //   (n >= A.size && res == matmul(A,x,n - 1)) || (n < A.size && res == addVector(emv(x(n), A(n)), matmul(A, x, n - 1)))
+  // )
 
   def vecAdd(a: List[BigInt], b: List[BigInt], n: BigInt): List[BigInt] = {
     require(n >= 0 && a.size >= 0 && a.size == b.size)
@@ -175,25 +215,27 @@ object Gemv {
   def indexTo(A: List[BigInt], index: BigInt): BigInt = {
     require(A.size >= 0)
 
-    if (index < 0) 0
+    if (index < 0) BigInt(0)
     else {
       A match {
-        case Nil() => 0
+        case Nil() => BigInt(0)
         case Cons(a, aa) =>
           if (index == 0) a
           else indexTo(aa, index - 1)
       }
     }
-  }
+  }.ensuring(res =>
+    (index >= 0 && index < A.size) || ((index < 0 || index >= A.size) && res == 0)
+  )
 
   def w_in(t: BigInt)(i: BigInt)(x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && x.size >= 0)
     decreases(i)
 
-    if (i >= x.size) 0
+    if (i >= x.size) BigInt(0)
     else if (i == 0) x.head
     else w_in(t)(i - 1)(x.tail)
-  }
+  }.ensuring(res => res == indexTo(x, i))
 
   def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
     require(t >= 0 && i >= 0 && A.size >= 0)
@@ -227,6 +269,17 @@ object Gemv {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
   }
+
+  def linearIndexLemma(
+      t: BigInt
+  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+    require(i >= 0 && i < A.size)
+    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x))
+    lemma1(A, x, i)
+  }.ensuring(res =>
+    indexTo(matmul(A, x, i), t - i) + indexTo(A(i), t - i) * indexTo(x, i)
+      == indexTo(matmul(A, x, i + 1), t - i)
+  )
 
   // def yout_lemma(
   //     t: BigInt
