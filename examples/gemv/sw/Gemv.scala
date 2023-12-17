@@ -74,6 +74,46 @@ object Gemv {
     (A.size == 0 && res.size == 0) || (n == 0 && res.size == 0) || (A.head.size == res.size)
   )
 
+  def simpleSum(
+    A: List[BigInt]
+  ): BigInt = {
+    A match {
+      case Nil() => 0
+      case Cons(h,t) => h + simpleSum(t)
+    }
+  }
+
+  def simplestSumLemma(A: List[BigInt], x: BigInt): Unit = {
+    A match {
+      case Nil() => assert(true)
+      case Cons(a,aa) => {
+        simplestSumLemma(aa, x)
+        // simpleSum(aa) + x == simpleSum(aa :+ x)
+        check(a + simpleSum(aa) + x == a + simpleSum(aa :+ x))
+        check(simpleSum(A) + x == a + simpleSum(aa :+ x))
+        check(Cons(a, aa :+ x) == A :+ x)
+        check(a + simpleSum(aa :+ x) == simpleSum(A :+ x))
+      }
+    }
+  }.ensuring(simpleSum(A) + x == simpleSum(A :+ x))
+
+  def reverseLemmaSimpler(
+    A: List[BigInt]
+  ): Unit = {
+
+    (A) match {
+      case (Nil()) => { check(true) }
+      case (Cons(a,aa)) => {
+        reverseLemmaSimpler(aa)
+        check(a + simpleSum(aa.reverse) == a + simpleSum(aa))
+        check(aa.reverse :+ a == A.reverse)
+        simplestSumLemma(aa.reverse, a)
+
+      }
+    }
+
+  }.ensuring(simpleSum(A) == simpleSum(A.reverse))
+
   def reverseLemma(
       A: List[List[BigInt]],
       x: List[BigInt],
@@ -83,6 +123,14 @@ object Gemv {
     require(n >= A.size)
     require(matrixSizeCheck(A.reverse, x.reverse))
 
+    /*if (n > 0) {
+      A match {
+        case Cons(head, tail) =>
+
+      }
+    } else {
+      assert(false)
+    }*/
   }.ensuring(matmul(A, x, n) == matmul(A.reverse, x.reverse, n))
 
   // def lemmaAdditivity(
