@@ -8,6 +8,57 @@ import stainless.collection.*
 import stainless.proof.check
 
 object Gemv {
+  
+  //////////////////////////////////////
+  // GENERIC LIST HELPERS/PROPERTIES //
+  ////////////////////////////////////
+
+  def partitionListLemma[T](A: List[T], n: BigInt): Unit = {
+    require(n < A.size && n >= 0)
+    if (n == 0) {
+      assert(A.take(n) == Nil[T]())
+      assert(A.drop(n) == A)
+    } else {
+      A match {
+        case Nil[T]() => assert(true)
+        case Cons(a, aa) => {
+          partitionListLemma(aa, n - 1)
+          check(A.take(n) == Cons(a, aa.take(n - 1)))
+        }
+      }
+    }
+  }.ensuring(A == (A.take(n) ++ A.drop(n)))
+
+  def dropIndexLemma[T](A: List[T], n: BigInt): Unit = {
+    require(n < A.size && n >= 0)
+
+    if (n == 0) {
+      assert(A.drop(n) == A)
+      assert(A.take(1).head == A(0))
+    } else {
+      A match {
+        case Nil[T]() => { assert(true) }
+        case Cons(a, aa) => {
+          dropIndexLemma(aa, n - 1)
+          check(A.drop(n) == aa.drop(n - 1))
+          check(aa(n - 1) == A(n))
+        }
+      }
+    }
+  }.ensuring(A.drop(n).take(1).head == A(n))
+
+  def takeAppendLemma[T](A: List[T], n: BigInt): Unit = {
+    require(n < A.size && n >= 0)
+    partitionListLemma(A, n)
+    ListSpecs.appendTakeDrop(A.take(n), A.drop(n), n + 1)
+    check(A.take(n + 1) == A.take(n) ++ A.drop(n).take(1))
+    dropIndexLemma(A, n)
+  }.ensuring(A.take(n) :+ A(n) == A.take(n + 1))
+
+  //////////////////////////////////////
+  // MATMUL REFERENCE IMPLEMENTATION //
+  ////////////////////////////////////
+
   def isRectangular(A: List[List[BigInt]]): Boolean = {
     A match {
       case Cons(head, Nil()) => true
@@ -37,224 +88,91 @@ object Gemv {
     }
   }.ensuring(res => res.size == lhs.size)
 
-  def addVectorAssoc(A: List[BigInt], B: List[BigInt], C: List[BigInt]): Unit = {
-    require(A.size == B.size && B.size == C.size) 
+  def addVectorAssoc(
+      A: List[BigInt],
+      B: List[BigInt],
+      C: List[BigInt]
+  ): Unit = {
+    require(A.size == B.size && B.size == C.size)
 
     (A, B, C) match {
-      case (Cons(a, aa), Cons(b,bb), Cons(c,cc)) =>
+      case (Cons(a, aa), Cons(b, bb), Cons(c, cc)) =>
         assert((a + b) + c == a + (b + c))
         addVectorAssoc(aa, bb, cc)
       case (Nil(), Nil(), Nil()) => assert(true)
     }
 
-  }.ensuring(addVector(addVector(A,B), C) == addVector(A, addVector(B, C)))
+  }.ensuring(addVector(addVector(A, B), C) == addVector(A, addVector(B, C)))
 
   def addVectorCommutativity(A: List[BigInt], B: List[BigInt]): Unit = {
-    require(A.size == B.size) 
+    require(A.size == B.size)
 
     (A, B) match {
-      case (Cons(a, aa), Cons(b,bb)) =>
+      case (Cons(a, aa), Cons(b, bb)) =>
         assert(a + b == b + a)
         addVectorCommutativity(aa, bb)
       case (Nil(), Nil()) => assert(true)
     }
 
-  }.ensuring(addVector(A,B) == addVector(B,A))
+  }.ensuring(addVector(A, B) == addVector(B, A))
 
   def matmul(
       A: List[List[BigInt]],
-      x: List[BigInt],
-      n: BigInt
+      X: List[BigInt],
+      gas: BigInt
   ): List[BigInt] = {
-    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
-    decreases(n)
+    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && gas >= 0)
+    decreases(gas)
 
-    if (n > 0) {
+    if (gas > 0) {
       A match {
         case Cons(head, tail) =>
-          if (tail.size == 0 || n == 1) emv(x.head, head)
+          if (tail.size == 0 || gas == 1) emv(X.head, head)
           else {
-            addVector(emv(x.head, head), matmul(tail, x.tail, n - 1))
+            addVector(emv(X.head, head), matmul(tail, X.tail, gas - 1))
           }
         case Nil() => Nil()
       }
     } else {
       Nil()
     }
-    // println(thing.toString())
-  }.ensuring(res =>
-    (A.size == 0 && res.size == 0) || (n == 0 && res.size == 0) || (A.head.size == res.size)
-  )
+  }.ensuring(res => (A.size == 0 && res.size == 0) || (gas == 0 && res.size == 0) || (A.head.size == res.size))
 
-  def simpleSum(
-    A: List[BigInt]
-  ): BigInt = {
-    A match {
-      case Nil() => 0
-      case Cons(h,t) => h + simpleSum(t)
-    }
-  }
+  ////////////////////
+  // MATMUL LEMMAS //
+  //////////////////
 
-  def simplestSumLemma(A: List[BigInt], x: BigInt): Unit = {
-    A match {
-      case Nil() => assert(true)
-      case Cons(a,aa) => {
-        simplestSumLemma(aa, x)
-        // simpleSum(aa) + x == simpleSum(aa :+ x)
-        check(a + simpleSum(aa) + x == a + simpleSum(aa :+ x))
-        check(simpleSum(A) + x == a + simpleSum(aa :+ x))
-        check(Cons(a, aa :+ x) == A :+ x)
-        check(a + simpleSum(aa :+ x) == simpleSum(A :+ x))
-      }
-    }
-  }.ensuring(simpleSum(A) + x == simpleSum(A :+ x))
-
-  def reverseLemmaSimpler(
-    A: List[BigInt]
+  def emvLinearityLemma(
+    A: List[BigInt],
+    x: BigInt,
+    i: BigInt
   ): Unit = {
-
-    A match {
-      case (Nil()) => { check(true) }
-      case (Cons(a,aa)) => {
-        reverseLemmaSimpler(aa)
-        check(a + simpleSum(aa.reverse) == a + simpleSum(aa))
-        check(aa.reverse :+ a == A.reverse)
-        simplestSumLemma(aa.reverse, a)
-      }
-    }
-
-  }.ensuring(simpleSum(A) == simpleSum(A.reverse))
-
-  def simplestMatmulLemma(
-    A: List[List[BigInt]],
-    X: List[BigInt],
-    n: BigInt,
-    an: List[BigInt],
-    xn: BigInt
-  ): Unit = { 
-    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && n >= 0)
-    require(A.size == 0 || A.head.size == an.size)
-    require(n > A.size)
-
-    (A,X) match {
-      case (Nil(),Nil()) => assert(true)
-      case (Cons(a,aa), Cons(x,xx)) => {
-        if (aa.size == 0 || n == 1) assert(true) 
-        else {
-          // addVector(matmul(aa, xx, n),emv(xn, an)) == matmul(aa :+ an, xx :+ xn, n)
-          simplestMatmulLemma(aa, xx, n-1, an, xn)
-          // Add emv(x,a) to both sides
-          assert(addVector(emv(x,a), addVector(matmul(aa,xx,n-1), emv(xn,an))) == addVector(emv(x,a), matmul(aa :+ an, xx :+ xn, n-1)))
-          // Associate LHS
-          addVectorAssoc(emv(x,a), matmul(aa, xx, n-1), emv(xn,an))
-          assert(addVector(emv(x,a), matmul(aa,xx,n-1)) == matmul(A, X, n))
-          assert(addVector(emv(x,a), matmul(aa :+ an, xx :+ xn, n-1)) == matmul(A :+ an, X :+ xn, n)) 
-        }
-      }
-    }
-
-  }.ensuring((A.size == 0 && X.size == 0) || addVector(matmul(A, X, n),emv(xn, an)) == matmul(A :+ an, X :+ xn, n))
-
-  def partitionList[T](A: List[T], n: BigInt): Unit = {
-    require(n < A.size && n >= 0)
-    if (n == 0) {
-      assert(A.take(n) == Nil[T]())
-      assert(A.drop(n) == A)
+    require(i >= 0 && i < A.size)
+    // TODO
+    /*if (i == 0) {
+      check(emv(x,A).head == A.head)
     } else {
       A match {
-        case Nil[T]() => assert(true)
-        case Cons(a,aa) => {
-          partitionList(aa, n-1)
-          check(A.take(n) == Cons(a, aa.take(n-1)))
+        case Nil() => {
+          assert(true)
+        }
+        case Cons(a, aa) => {
+          emvLinearityLemma(aa, x, i-1)    
         }
       }
-    }
-  }.ensuring(A == (A.take(n) ++ A.drop(n)))
+    }*/
+  }.ensuring(emv(x, A)(i) == x * A(i))
 
-  def howManyMoreFuckingLemmas[T](A: List[T], n: BigInt): Unit = {
-    require(n < A.size && n >= 0)
-
-    if (n == 0) {
-      assert(A.drop(n) == A)
-      assert(A.take(1).head == A(0))
-    } else {
-      A match {
-        case Nil[T]() => {assert(true)}
-        case Cons(a,aa) => {
-          howManyMoreFuckingLemmas(aa, n-1)
-          check(A.drop(n) == aa.drop(n-1))
-          check(aa(n-1) == A(n))
-        }
-      }
-    }
-  }.ensuring(A.drop(n).take(1).head == A(n))
-
-  def takeAppend[T](A: List[T], n: BigInt): Unit = {
-    require(n < A.size && n >= 0)
-    partitionList(A, n)
-    ListSpecs.appendTakeDrop(A.take(n), A.drop(n), n+1)
-    check(A.take(n+1) == A.take(n) ++ A.drop(n).take(1))
-    howManyMoreFuckingLemmas(A, n)
-  }.ensuring(A.take(n) :+ A(n) == A.take(n+1))
-  /*
-  def reverseLemma(
-      A: List[List[BigInt]],
-      X: List[BigInt],
-      n: BigInt
+  def addVectorLinearityLemma(
+    A: List[BigInt],
+    B: List[BigInt],
+    i: BigInt
   ): Unit = {
-    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && n >= 0)
-    require(n >= A.size)
-    require(matrixSizeCheck(A.reverse, X.reverse))
+    require(i >= 0 && i < A.size && A.size == B.size)
+    // TODO
+  }.ensuring(addVector(A, B)(i) == A(i) + B(i))
 
-    (A,X) match {
-      case (Nil(),Nil()) => assert(true)
-      case (Cons(a,aa), Cons(x,xx)) => {
-        if (aa.size == 0 || n == 1) assert(true) 
-        else {
-          // matmul(aa, xx, n-1) == matmul(aa.reverse, xx.reverse, n-1)
-          reverseLemma(aa, xx, n-1)
-          // addVector(matmul(aa.reverse, xx.reverse, n),emv(x, a)) == matmul(aa.reverse :+ a, xx.reverse :+ x, n)
-          simplestMatmulLemma(aa.reverse, xx.reverse, n, a, x)
-          assert(addVector(emv(x, a),matmul(aa,xx,n-1)) == matmul(A,X,n))
-          assert(matmul(A,X,n) == addVector(emv(x, a), matmul(aa.reverse, xx.reverse, n-1)))
-          addVectorCommutativity(emv(x, a), matmul(aa.reverse, xx.reverse, n-1))
-          assert(matmul(aa.reverse, xx.reverse, n-1) == matmul(aa.reverse, xx.reverse, n))
-          
-          check(aa.reverse :+ a == A.reverse)
-          check(xx.reverse :+ x == X.reverse)
-        }
-      }
-    }
-
-  }.ensuring(matmul(A, X, n) == matmul(A.reverse, X.reverse, n))
-  */
-
-  // def lemmaAdditivity(
-  //     A: List[List[BigInt]],
-  //     x: List[BigInt],
-  //     n: BigInt
-  // ): Unit = {
-  //   require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
-
-  //   if (n == 0) {
-  //     assert(true)
-  //   } else {
-
-  //   }
-
-  // }.ensuring(res =>
-  //   (n >= A.size && res == matmul(A,x,n - 1)) || (n < A.size && res == addVector(emv(x(n), A(n)), matmul(A, x, n - 1)))
-  // )
-
-  def lemma3[T](
-      A: List[T],
-      n: BigInt
-  ): Boolean = {
-    require(A.size > 0 && n > 0)
-    A.head == A.take(n).head
-  }.holds
-
-  def lemma2(
+  def takePreserveRectangularityLemma(
       A: List[List[BigInt]],
       n: BigInt
   ): Unit = {
@@ -262,140 +180,165 @@ object Gemv {
     A match {
       case Cons(head, tail) => {
         if (n > 0) {
-          check(lemma3(A, n))
+          //check(lemma3(A, n))
           check(A.head == A.take(n).head)
           check(A.head.size == A.take(n).head.size)
-          lemma2(tail, n - 1)
+          takePreserveRectangularityLemma(tail, n - 1)
         } else {
           check(A.take(n) == Nil())
         }
       }
       case Nil() => check(A.take(n) == Nil())
     }
-    // if (n > 0) {
-    //   A match {
-    //     case Cons(head, Nil()) => assert(true)
-    //     case Cons(head, tail) => assert(head.size == tail.head.size)
-    //     case Nil() => assert(true)
-    //   }
-    //   lemma2(A, n- 1)
-    // } else {
-
-    // }
-    // A match {
-    //   case Cons(a,aa) => {
-    //     lemma2(aa, n)
-    //   }
-    //   case Nil() => {
-    //     check(takeList(n,A) == Nil())
-    //   }
-    // }
   }.ensuring(isRectangular(A.take(n)))
 
-  def lemma1(
+  def rectangularIndexLemma(A: List[List[BigInt]], i: BigInt): Unit = {
+    require(A.size >= 0 && isRectangular(A))
+    require(i >= 0 && i < A.size)
+
+    if (i == 0) {
+      assert(true)
+    } else {
+      A match {
+        case Nil() => { assert(true) }
+        case Cons(a, aa) => {
+          rectangularIndexLemma(aa, i - 1)
+        }
+      }
+    }
+  }.ensuring(A.size == 0 || (A.head.size == A(i).size))
+
+  def matmulTakeGasEquivalenceLemma(
       A: List[List[BigInt]],
-      x: List[BigInt],
-      n: BigInt
+      X: List[BigInt],
+      gas: BigInt
   ): Unit = {
-    require(A.size >= 0 && x.size >= 0 && matrixSizeCheck(A, x) && n >= 0)
-    decreases(n)
+    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && gas >= 0)
+    decreases(gas)
 
-    check(A.take(n).size == x.take(n).size)
-    lemma2(A, n)
-    val a = matmul(A.take(n), x.take(n), n)
-    val b = matmul(A, x, n)
+    check(A.take(gas).size == X.take(gas).size)
+    takePreserveRectangularityLemma(A, gas)
+    val a = matmul(A.take(gas), X.take(gas), gas)
+    val b = matmul(A, X, gas)
 
-    if (n > 0) {
-      (A, x) match {
+    if (gas > 0) {
+      (A, X) match {
         case (Cons(h1, t1), Cons(h2, t2)) => {
-          lemma1(t1, t2, n - 1)
-          if (t2.size == 0 || n == 1) {
-            check(b == emv(x.head, A.head))
+          matmulTakeGasEquivalenceLemma(t1, t2, gas - 1)
+          if (t2.size == 0 || gas == 1) {
+            check(b == emv(X.head, A.head))
           } else {
-            check(addVector(emv(h2, h1), matmul(t1, t2, n - 1)) == b)
+            check(addVector(emv(h2, h1), matmul(t1, t2, gas - 1)) == b)
           }
         }
         case (Nil(), Nil()) => {
-          assert(A.take(n) == Nil())
-          assert(x.take(n) == Nil())
+          assert(A.take(gas) == Nil())
+          assert(X.take(gas) == Nil())
           assert(b == Nil())
         }
       }
     } else {
-      assert(matmul(A, x, n) == Nil())
+      assert(matmul(A, X, gas) == Nil())
     }
 
-  }.ensuring(matmul(A.take(n), x.take(n), n) == matmul(A, x, n))
+  }.ensuring(matmul(A.take(gas), X.take(gas), gas) == matmul(A, X, gas))
 
-  def matmulGasLemma(A: List[List[BigInt]], X: List[BigInt], i: BigInt): Unit = {
+  def matmulGasLimitingLemma(
+      A: List[List[BigInt]],
+      X: List[BigInt],
+      gas: BigInt
+  ): Unit = {
     require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X))
-    require(i >= A.size)
-    (A,X) match { 
+    require(gas >= A.size)
+    (A, X) match {
       case (Nil(), Nil()) => {
-        assert(matmul(A,X,i) == Nil())
+        assert(matmul(A, X, gas) == Nil())
       }
-      case (Cons(a, aa), Cons(x,xx)) => {
-        if (aa.size == 0 || i == 1) {
+      case (Cons(a, aa), Cons(x, xx)) => {
+        if (aa.size == 0 || gas == 1) {
           check(true)
         } else {
-          matmulGasLemma(aa, xx, i-1)
-          assert(matmul(A,X,A.size) == addVector(emv(x,a),matmul(aa,xx,A.size-1)))
-          assert(matmul(A,X,i) == addVector(emv(x,a),matmul(aa,xx,i-1)))
+          matmulGasLimitingLemma(aa, xx, gas - 1)
+          assert(matmul(A, X, A.size) == addVector(emv(x, a),matmul(aa, xx, A.size - 1)))
+          assert(matmul(A, X, gas) == addVector(emv(x, a), matmul(aa, xx, gas - 1)))
         }
       }
     }
-  }.ensuring(matmul(A,X,A.size) == matmul(A,X,i))
+  }.ensuring(matmul(A, X, A.size) == matmul(A, X, gas))
 
-  def rectangularIndexLemma(A: List[List[BigInt]], n: BigInt): Unit = {
-    require(A.size >= 0 && isRectangular(A))
-    require(n >= 0 && n < A.size)
+  def matmulAppendRowLemma(
+      A: List[List[BigInt]],
+      X: List[BigInt],
+      gas: BigInt,
+      an: List[BigInt],
+      xn: BigInt
+  ): Unit = {
+    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && gas >= 0)
+    require(A.size == 0 || A.head.size == an.size)
+    require(gas > A.size)
 
-    if (n == 0) {
-      assert(true)
-    } else {
-      A match {
-        case Nil() => {assert(true)}
-        case Cons(a,aa) => {
-          rectangularIndexLemma(aa, n-1)
+    (A, X) match {
+      case (Nil(), Nil()) => assert(true)
+      case (Cons(a, aa), Cons(x, xx)) => {
+        if (aa.size == 0 || gas == 1) assert(true)
+        else {
+          // addVector(matmul(aa, xx, gas),emv(xn, an)) == matmul(aa :+ an, xx :+ xn, n)
+          matmulAppendRowLemma(aa, xx, gas - 1, an, xn)
+          // Add emv(x,a) to both sides
+          assert(addVector(emv(x, a),addVector(matmul(aa, xx, gas - 1), emv(xn, an))) == addVector(emv(x, a), matmul(aa :+ an, xx :+ xn, gas - 1)))
+          // Associate LHS
+          addVectorAssoc(emv(x, a), matmul(aa, xx, gas - 1), emv(xn, an))
+          assert(addVector(emv(x, a), matmul(aa, xx, gas - 1)) == matmul(A, X, gas))
+          assert(addVector(emv(x, a), matmul(aa :+ an, xx :+ xn, gas - 1)) == matmul(A :+ an, X :+ xn, gas))
         }
       }
     }
-  }.ensuring(A.size == 0 || (A.head.size == A(n).size))
+  }.ensuring((A.size == 0 && X.size == 0) || addVector(matmul(A, X, gas), emv(xn, an)) == matmul(A :+ an, X :+ xn, gas))
 
-  def linearIndexLemma(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+  def matmulAddRowLemma(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(i > 0 && i < A.size)
     require(A.size > 0 && x.size > 0 && matrixSizeCheck(A, x))
-    // matmul(A,x,i) == matmul(A.take(i), x.take(i), i)
-    lemma1(A, x, i)
-    // matmul(A.take(i), x.take(i), i) == matmul(A.take(i), x.take(i), i+1) 
-    matmulGasLemma(A.take(i), x.take(i), i+1)
-    
-    // addVector(matmul(A.take(i),X.take(i),i+1),emv(x(i), A(i)) == matmul(A.take(i+1), X.take(i+1), i+1)
-    lemma2(A, i)
-    rectangularIndexLemma(A, i)
-    simplestMatmulLemma(A.take(i), x.take(i), i + 1, A(i), x(i))
-    takeAppend(A, i)
-    takeAppend(x, i)
-    check(addVector(matmul(A.take(i),x.take(i),i+1),emv(x(i), A(i))) == matmul(A.take(i+1), x.take(i+1), i+1))
-    // matmul(A.take(i+1), x.take(i+1), i+1) == matmul(A,x,i+1)
-    lemma2(A, i+1)
-    lemma1(A, x, i+1)
-  }.ensuring(addVector(matmul(A, x, i), emv(x(i), A(i))) == matmul(A, x, i + 1) )
 
-  //def takeList[T](n: BigInt, list: List[T]): List[T] = {
-  //  require(n >= 0)
-  //  decreases(n)
-  //  if (n == 0) Nil()
-  //  else {
-  //    list match {
-  //      case Cons(head, tail) => Cons(head, takeList(n - 1, tail))
-  //      case Nil()            => Nil()
-  //    }
-  //  }
-  //}.ensuring(res =>
-  //  (n <= list.size && res.size == n) || (n > list.size && res.size == list.size)
-  //)
-/*
+    // 1. Taking the first i elements is equivalent if the gas is i.
+    // matmul(A,x,i) == matmul(A.take(i), x.take(i), i)
+    matmulTakeGasEquivalenceLemma(A, x, i)
+
+    // 2. This is also equal to i+1 as gas because A.take(i) is of size i.
+    // matmul(A.take(i), x.take(i), i) == matmul(A.take(i), x.take(i), i+1)
+    matmulGasLimitingLemma(A.take(i), x.take(i), i + 1)
+
+    // 3. Adding emv(x(i), A(i)) to the matmul result is the same as appending it to the array.
+    // addVector(matmul(A.take(i),X.take(i),i+1),emv(x(i), A(i)) == matmul(A.take(i) :+ A(i), X.take(i) :+ X(i), i+1)
+    takePreserveRectangularityLemma(A, i) // } Needed for precondition of matmulAppendRow
+    rectangularIndexLemma(A, i)
+    matmulAppendRowLemma(A.take(i), x.take(i), i + 1, A(i), x(i))
+
+    // 4. A.take(i) :+ A(i) == A.take(i+1), likewise for x
+    takeAppendLemma(A, i)
+    takeAppendLemma(x, i)
+
+    // Check that 3 & 4 have been put together successfully.
+    check(addVector(matmul(A.take(i), x.take(i), i + 1), emv(x(i), A(i))) == matmul(A.take(i + 1), x.take(i + 1), i + 1))
+
+    // 5. Same as the first step, but in reverse and for i+1.
+    // matmul(A.take(i+1), x.take(i+1), i+1) == matmul(A,x,i+1)
+    takePreserveRectangularityLemma(A, i + 1) // have to remind stainless that A.take(i+1) is also rectangular
+    matmulTakeGasEquivalenceLemma(A, x, i + 1)
+  }.ensuring(addVector(matmul(A, x, i), emv(x(i), A(i))) == matmul(A, x, i + 1))
+
+  // TODO - go back to top down and come back to this when we have a better idea of the edge cases
+  /*def matmulLinearityLemma(j: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+    require(i > 0 && i < A.size)
+    require(i > 0 && i < A.size)
+    require(A.size > 0 && x.size > 0 && matrixSizeCheck(A, x))
+       
+  }.ensuring(indexOf(matmul(A, x, i), j) + indexOf(A(i), j) * x(i) == indexOf(matmul(A, x, i + 1), j))*/
+
+
+  ////////////////////////////////////
+  // SYSTOLIC ARRAY IMPLEMENTATION //
+  //////////////////////////////////
+
   def indexTo(A: List[BigInt], index: BigInt): BigInt = {
     require(A.size >= 0)
 
@@ -454,7 +397,14 @@ object Gemv {
     y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
   }
 
-  
+  def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+    require(t >= 0 && matrixSizeCheck(A, x))
+    y_in(t)(x.size)(A, x)
+  }
+
+  ///////////////////////////////////////
+  // SYSTOLIC ARRAY CORRECTNESS PROOF //
+  /////////////////////////////////////
 
   // def yout_lemma(
   //     t: BigInt
@@ -482,11 +432,6 @@ object Gemv {
   //     }
   //   }
   // }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i+1),t - i))
-
-  def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && matrixSizeCheck(A, x))
-    y_in(t)(x.size)(A, x)
-  }
 
   def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
@@ -516,7 +461,11 @@ object Gemv {
       // since i decreases with t in y_in, the t >= x.size + res.size should be an invariant
       check(y_in(t)(x.size)(A, x) == 0)
     }
-  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))*/
+  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))
+
+  //////////////////
+  // TEST DRIVER //
+  ////////////////
 
   def main(args: Array[String]): Unit = {
     // 1 3    5
