@@ -37,17 +37,17 @@ object Gemv {
     }
   }.ensuring(res => res.size == lhs.size)
 
-  def addVectorLemma(lhs: List[BigInt], rhs: List[BigInt]): Unit = {
-    require(lhs.size == rhs.size)
+  def addVectorAssoc(A: List[BigInt], B: List[BigInt], C: List[BigInt]): Unit = {
+    require(A.size == B.size && B.size == C.size) 
 
-    (lhs, rhs) match {
-      case (Cons(h1, t1), Cons(h2, t2)) =>
-        assert(h1 + h2 == h2 + h1)
-        addVectorLemma(t1, t2)
-      case (Nil(), Nil()) => assert(true)
+    (A, B, C) match {
+      case (Cons(a, aa), Cons(b,bb), Cons(c,cc)) =>
+        assert((a + b) + c == a + (b + c))
+        addVectorAssoc(aa, bb, cc)
+      case (Nil(), Nil(), Nil()) => assert(true)
     }
 
-  }.ensuring(addVector(lhs, rhs) == addVector(rhs, lhs))
+  }.ensuring(addVector(addVector(A,B), C) == addVector(A, addVector(B, C)))
 
   def matmul(
       A: List[List[BigInt]],
@@ -101,19 +101,49 @@ object Gemv {
     A: List[BigInt]
   ): Unit = {
 
-    (A) match {
+    A match {
       case (Nil()) => { check(true) }
       case (Cons(a,aa)) => {
         reverseLemmaSimpler(aa)
         check(a + simpleSum(aa.reverse) == a + simpleSum(aa))
         check(aa.reverse :+ a == A.reverse)
         simplestSumLemma(aa.reverse, a)
-
       }
     }
 
   }.ensuring(simpleSum(A) == simpleSum(A.reverse))
 
+  def simplestMatmulLemma(
+    A: List[List[BigInt]],
+    X: List[BigInt],
+    n: BigInt,
+    an: List[BigInt],
+    xn: BigInt
+  ): Unit = { 
+    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && n >= 0)
+    require(A.size == 0 || A.head.size == an.size)
+    require(n > A.size)
+
+    (A,X) match {
+      case (Nil(),Nil()) => assert(true)
+      case (Cons(a,aa), Cons(x,xx)) => {
+        if (aa.size == 0 || n == 1) assert(true) 
+        else {
+          // addVector(matmul(aa, xx, n),emv(xn, an)) == matmul(aa :+ an, xx :+ xn, n)
+          simplestMatmulLemma(aa, xx, n, an, xn)
+          // Add emv(x,a) to both sides
+          assert(addVector(emv(x,a), addVector(matmul(aa,xx,n), emv(xn,an))) == addVector(emv(x,a), matmul(aa :+ an, xx :+ xn, n)))
+          // Associate LHS
+          addVectorAssoc(emv(x,a), matmul(aa, xx, n), emv(xn,an))
+          assert(addVector(emv(x,a), matmul(aa,xx,n)) == matmul(A, X, n))
+          assert(addVector(emv(x,a), matmul(aa :+ an, xx :+ xn, n)) == matmul(A :+ an, X :+ xn, n)) 
+        }
+      }
+    }
+
+  }.ensuring(addVector(matmul(A, X, n),emv(xn, an)) == matmul(A :+ an, X :+ xn, n))
+
+  /*
   def reverseLemma(
       A: List[List[BigInt]],
       x: List[BigInt],
@@ -123,15 +153,20 @@ object Gemv {
     require(n >= A.size)
     require(matrixSizeCheck(A.reverse, x.reverse))
 
-    /*if (n > 0) {
+    if (n > 0) {
       A match {
-        case Cons(head, tail) =>
+        case Cons(head, tail) => {
+          if (tail.size == 0 || n == 1) assert(true) 
+          else {
 
+          }
+        }
       }
     } else {
       assert(false)
-    }*/
+    }
   }.ensuring(matmul(A, x, n) == matmul(A.reverse, x.reverse, n))
+  */
 
   // def lemmaAdditivity(
   //     A: List[List[BigInt]],
@@ -149,7 +184,7 @@ object Gemv {
   // }.ensuring(res =>
   //   (n >= A.size && res == matmul(A,x,n - 1)) || (n < A.size && res == addVector(emv(x(n), A(n)), matmul(A, x, n - 1)))
   // )
-
+  /*
   def vecAdd(a: List[BigInt], b: List[BigInt], n: BigInt): List[BigInt] = {
     require(n >= 0 && a.size >= 0 && a.size == b.size)
     decreases(n)
@@ -246,19 +281,19 @@ object Gemv {
 
   }.ensuring(matmul(A.take(n), x.take(n), n) == matmul(A, x, n))
 
-  /*def takeList[T](n: BigInt, list: List[T]): List[T] = {
-    require(n >= 0)
-    decreases(n)
-    if (n == 0) Nil()
-    else {
-      list match {
-        case Cons(head, tail) => Cons(head, takeList(n - 1, tail))
-        case Nil()            => Nil()
-      }
-    }
-  }.ensuring(res =>
-    (n <= list.size && res.size == n) || (n > list.size && res.size == list.size)
-  )*/
+  //def takeList[T](n: BigInt, list: List[T]): List[T] = {
+  //  require(n >= 0)
+  //  decreases(n)
+  //  if (n == 0) Nil()
+  //  else {
+  //    list match {
+  //      case Cons(head, tail) => Cons(head, takeList(n - 1, tail))
+  //      case Nil()            => Nil()
+  //    }
+  //  }
+  //}.ensuring(res =>
+  //  (n <= list.size && res.size == n) || (n > list.size && res.size == list.size)
+  //)
 
   def indexTo(A: List[BigInt], index: BigInt): BigInt = {
     require(A.size >= 0)
@@ -389,7 +424,7 @@ object Gemv {
       // since i decreases with t in y_in, the t >= x.size + res.size should be an invariant
       check(y_in(t)(x.size)(A, x) == 0)
     }
-  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))
+  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))*/
 
   def main(args: Array[String]): Unit = {
     // 1 3    5
