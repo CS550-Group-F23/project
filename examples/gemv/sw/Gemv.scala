@@ -369,8 +369,6 @@ object Gemv {
     lemma1(A, x, i)
     // matmul(A.take(i), x.take(i), i) == matmul(A.take(i), x.take(i), i+1) 
     matmulGasLemma(A.take(i), x.take(i), i+1)
-
-    check(matmul(A,x,i) == matmul(A.take(i), x.take(i), i+1))
     
     // addVector(matmul(A.take(i),X.take(i),i+1),emv(x(i), A(i)) == matmul(A.take(i+1), X.take(i+1), i+1)
     lemma2(A, i)
@@ -381,14 +379,7 @@ object Gemv {
     check(addVector(matmul(A.take(i),x.take(i),i+1),emv(x(i), A(i))) == matmul(A.take(i+1), x.take(i+1), i+1))
     // matmul(A.take(i+1), x.take(i+1), i+1) == matmul(A,x,i+1)
     lemma2(A, i+1)
-    lemma1(A.take(i+1), x.take(i+1), i+1)
-    check(A.take(i+1).size == x.take(i+1).size)
-    check(isRectangular(A.take(i+1)))
-    check(i+1 >= 0)
-    check(i+1 <= A.size)
-    check(i+1 <= x.size)
-    check(matmul(A.take(i+1), x.take(i+1), i+1) == matmul(A, x, i + 1))
-    check(addVector(matmul(A,x,i),emv(x(i), A(i))) == matmul(A.take(i+1), x.take(i+1), i+1))
+    lemma1(A, x, i+1)
   }.ensuring(addVector(matmul(A, x, i), emv(x(i), A(i))) == matmul(A, x, i + 1) )
 
   //def takeList[T](n: BigInt, list: List[T]): List[T] = {
