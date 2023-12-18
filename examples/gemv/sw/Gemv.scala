@@ -329,7 +329,7 @@ object Gemv {
   // TODO - go back to top down and come back to this when we have a better idea of the edge cases
   /*def matmulLinearityLemma(j: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(i > 0 && i < A.size)
-    require(i > 0 && i < A.size)
+    require(j > 0 && j < A.head.size) // correct?
     require(A.size > 0 && x.size > 0 && matrixSizeCheck(A, x))
        
   }.ensuring(indexOf(matmul(A, x, i), j) + indexOf(A(i), j) * x(i) == indexOf(matmul(A, x, i + 1), j))*/
@@ -406,32 +406,44 @@ object Gemv {
   // SYSTOLIC ARRAY CORRECTNESS PROOF //
   /////////////////////////////////////
 
-  // def yout_lemma(
-  //     t: BigInt
-  // )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
-  //   require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-  //   decreases(i)
-  //   val yout_res = y_out(t)(i)(A, x)
+  def yout_lemma(
+      t: BigInt
+  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+    decreases(i)
+    val yout_res = y_out(t)(i)(A, x)
 
-  //   if (t < i) {
-  //     check(y_in(t)(i)(A, x) == 0)
-  //     check(a_in(t)(i)(A) == 0)
-  //     check(yout_res == 0)
-  //   } else {
-  //     A match {
-  //       case Nil() => check(yout_res == 0)
-  //       case Cons(head, tail) => {
-  //         // yout_lemma(t)(i-1)(A, x)
-  //         if(t < i + head.size) {
-
-  //         }
-  //         else {
-  //           check(yout_res == 0)
-  //         }
-  //       }
-  //     }
-  //   }
-  // }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i+1),t - i))
+    if (t < i) {
+      check(y_in(t)(i)(A, x) == 0)
+      check(a_in(t)(i)(A) == 0)
+      check(yout_res == 0)
+    } else { // i <= t
+      if (i == 0) {
+        assert(true)
+      } else {
+        A match {
+          case Nil() => check(yout_res == 0)
+          case Cons(head, tail) => {
+            if(t < i + head.size) {
+              yout_lemma(t-1)(i-1)(A, x)
+              check(y_out(t)(i)(A, x) == y_out(t-1)(i-1)(A,x) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              // By inductive hypothesis
+              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i),t - i) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              // By postcondition of a_in, w_in
+              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i),t - i) + indexTo(A(i), t - i) * indexTo(x, i))
+              // t - i should be in range by if statement above
+              check(indexTo(matmul(A, x, i),t - i) + indexTo(A(i), t - i) * indexTo(x, i)
+               == matmul(A, x, i)(t - i) + A(i)(t - i) * x(i))
+              matmulLinearityLemma(t-i)(i)(A, x)
+            }
+            else {
+              check(yout_res == 0)
+            }
+          }
+        }
+      }
+    }
+  }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i+1),t - i))
 
   def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
