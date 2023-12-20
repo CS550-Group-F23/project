@@ -528,35 +528,21 @@ object Gemv {
     }
   }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i + 1), t - i))
 
-  /*def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+  def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
 
     val res = matmul(A, x, x.size)
 
     if (t < x.size) 0
-    else if (t - x.size < res.size) {
-      indexTo(res, t - x.size)
-    } else 0
+    else if (t - x.size < res.size) indexTo(res, t - x.size)
+    else 0
   }
 
   def verifyOutput(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
 
-    val res = matmul(A, x, x.size)
-    if (t < x.size) {
-      assert(true)
-    } else if (t - x.size < res.size) {
-      check(t > 0 && x.size > 0)
-      check(indexTo(res, t - x.size) == y_in(t)(x.size)(A, x))
-    } else {
-      check(x.size >= A.size)
-      check(a_in(t)(x.size)(A) == 0)
-      // possibly tricky part of the proof requiring induction
-      // need to prove that the systolic array stays outputting 0
-      // since i decreases with t in y_in, the t >= x.size + res.size should be an invariant
-      check(y_in(t)(x.size)(A, x) == 0)
-    }
-  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))*/
+    yin_lemma(t)(x.size)(A, x)
+  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))
 
   //////////////////
   // TEST DRIVER //
