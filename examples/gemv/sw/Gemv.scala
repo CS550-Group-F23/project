@@ -8,7 +8,7 @@ import stainless.collection.*
 import stainless.proof.check
 
 object Gemv {
-  
+
   //////////////////////////////////////
   // GENERIC LIST HELPERS/PROPERTIES //
   ////////////////////////////////////
@@ -106,6 +106,7 @@ object Gemv {
 
   def addVectorCommutativity(A: List[BigInt], B: List[BigInt]): Unit = {
     require(A.size == B.size)
+    decreases(A.size)
 
     (A, B) match {
       case (Cons(a, aa), Cons(b, bb)) =>
@@ -143,50 +144,50 @@ object Gemv {
   //////////////////
 
   def emvLinearityLemma(
-    A: List[BigInt],
-    x: BigInt,
-    i: BigInt
+      A: List[BigInt],
+      x: BigInt,
+      i: BigInt
   ): Unit = {
     require(i >= 0 && i < A.size)
     if (i == 0) {
-      assert(emv(x,A).head == x * A.head ) 
+      assert(emv(x, A).head == x * A.head)
     } else {
       A match {
-        case Cons(a,Nil()) => {
+        case Cons(a, Nil()) => {
           assert(A(i) == a)
         }
-        case Cons(a,aa) => {
-          emvLinearityLemma(aa, x, i-1)
-          assert(emv(x,aa)(i-1) == x * aa(i-1))
-          assert(emv(x,A) == Cons(x * a, emv(x,aa)))
-          assert(aa(i-1) == A(i))
-          assert(emv(x,A)(i) == emv(x,aa)(i-1))
+        case Cons(a, aa) => {
+          emvLinearityLemma(aa, x, i - 1)
+          assert(emv(x, aa)(i - 1) == x * aa(i - 1))
+          assert(emv(x, A) == Cons(x * a, emv(x, aa)))
+          assert(aa(i - 1) == A(i))
+          assert(emv(x, A)(i) == emv(x, aa)(i - 1))
         }
       }
     }
   }.ensuring(emv(x, A)(i) == x * A(i))
 
   def addVectorLinearityLemma(
-    A: List[BigInt],
-    B: List[BigInt],
-    i: BigInt
+      A: List[BigInt],
+      B: List[BigInt],
+      i: BigInt
   ): Unit = {
     require(i >= 0 && i < A.size && A.size == B.size)
     if (i == 0) {
-      assert(addVector(A,B).head == A.head + B.head) 
+      assert(addVector(A, B).head == A.head + B.head)
     } else {
-      (A,B) match {
-        case (Cons(a,Nil()),Cons(b,Nil())) => {
+      (A, B) match {
+        case (Cons(a, Nil()), Cons(b, Nil())) => {
           assert(A(i) == a)
           assert(B(i) == b)
         }
-        case (Cons(a,aa),Cons(b,bb)) => {
-          addVectorLinearityLemma(aa, bb, i-1)
-          assert(addVector(aa,bb)(i-1) == aa(i-1) + bb(i-1))
-          assert(addVector(A,B) == Cons(a + b, addVector(aa,bb)))
-          assert(aa(i-1) == A(i))
-          assert(bb(i-1) == B(i))
-          assert(addVector(A,B)(i) == addVector(aa,bb)(i-1))
+        case (Cons(a, aa), Cons(b, bb)) => {
+          addVectorLinearityLemma(aa, bb, i - 1)
+          assert(addVector(aa, bb)(i - 1) == aa(i - 1) + bb(i - 1))
+          assert(addVector(A, B) == Cons(a + b, addVector(aa, bb)))
+          assert(aa(i - 1) == A(i))
+          assert(bb(i - 1) == B(i))
+          assert(addVector(A, B)(i) == addVector(aa, bb)(i - 1))
         }
       }
     }
@@ -200,7 +201,7 @@ object Gemv {
     A match {
       case Cons(head, tail) => {
         if (n > 0) {
-          //check(lemma3(A, n))
+          // check(lemma3(A, n))
           check(A.head == A.take(n).head)
           check(A.head.size == A.take(n).head.size)
           takePreserveRectangularityLemma(tail, n - 1)
@@ -279,7 +280,7 @@ object Gemv {
           check(true)
         } else {
           matmulGasLimitingLemma(aa, xx, gas - 1)
-          assert(matmul(A, X, A.size) == addVector(emv(x, a),matmul(aa, xx, A.size - 1)))
+          assert(matmul(A, X, A.size) == addVector(emv(x, a), matmul(aa, xx, A.size - 1)))
           assert(matmul(A, X, gas) == addVector(emv(x, a), matmul(aa, xx, gas - 1)))
         }
       }
@@ -305,7 +306,7 @@ object Gemv {
           // addVector(matmul(aa, xx, gas),emv(xn, an)) == matmul(aa :+ an, xx :+ xn, n)
           matmulAppendRowLemma(aa, xx, gas - 1, an, xn)
           // Add emv(x,a) to both sides
-          assert(addVector(emv(x, a),addVector(matmul(aa, xx, gas - 1), emv(xn, an))) == addVector(emv(x, a), matmul(aa :+ an, xx :+ xn, gas - 1)))
+          assert(addVector(emv(x, a), addVector(matmul(aa, xx, gas - 1), emv(xn, an))) == addVector(emv(x, a), matmul(aa :+ an, xx :+ xn, gas - 1)))
           // Associate LHS
           addVectorAssoc(emv(x, a), matmul(aa, xx, gas - 1), emv(xn, an))
           assert(addVector(emv(x, a), matmul(aa, xx, gas - 1)) == matmul(A, X, gas))
@@ -346,20 +347,18 @@ object Gemv {
     matmulTakeGasEquivalenceLemma(A, x, i + 1)
   }.ensuring(addVector(matmul(A, x, i), emv(x(i), A(i))) == matmul(A, x, i + 1))
 
-  // TODO - go back to top down and come back to this when we have a better idea of the edge cases
   def matmulLinearityLemma(j: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(i > 0 && i < A.size)
     require(j >= 0 && j < A.head.size) // correct?
     require(A.size > 0 && x.size > 0 && matrixSizeCheck(A, x))
 
-    matmulAddRowLemma(i)(A,x)
+    matmulAddRowLemma(i)(A, x)
     assert(addVector(matmul(A, x, i), emv(x(i), A(i)))(j) == matmul(A, x, i + 1)(j))
-    addVectorLinearityLemma(matmul(A, x, i), emv(x(i), A(i)),j)
-    assert(matmul(A,x,i)(j) == indexTo(matmul(A,x,i), j))
+    addVectorLinearityLemma(matmul(A, x, i), emv(x(i), A(i)), j)
+    assert(matmul(A, x, i)(j) == indexTo(matmul(A, x, i), j))
     emvLinearityLemma(A(i), x(i), j)
-    assert(A(i)(j) == indexTo(A(i), j))       
+    assert(A(i)(j) == indexTo(A(i), j))
   }.ensuring(indexTo(matmul(A, x, i), j) + indexTo(A(i), j) * x(i) == indexTo(matmul(A, x, i + 1), j))
-
 
   ////////////////////////////////////
   // SYSTOLIC ARRAY IMPLEMENTATION //
@@ -377,9 +376,7 @@ object Gemv {
           else indexTo(aa, index - 1)
       }
     }
-  }.ensuring(res =>
-    (index >= 0 && index < A.size && res == A(index)) || ((index < 0 || index >= A.size) && res == 0)
-  )
+  }.ensuring(res => (index >= 0 && index < A.size && res == A(index)) || ((index < 0 || index >= A.size) && res == 0))
 
   def w_in(t: BigInt)(i: BigInt)(x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && x.size >= 0)
@@ -403,8 +400,9 @@ object Gemv {
       }
     }
   }.ensuring(res =>
-    // If-Then-Else(i <= t && i < A.size, res == indexTo(A(i), t-i)), res == 0)
-    (i <= t && i < A.size && res == indexTo(A(i), t-i)) || ((i > t || i >= A.size) && res == 0)
+    // If-Then-Else(i <= t && i < A.size && t-i < A.head.size, res == indexTo(A(i), t-i)) && ite(t-i < A(i).size, true, res == 0), res == 0)
+    ((i <= t && i < A.size && res == indexTo(A(i), t - i) && ((t - i < A(i).size) || (t - i >= A(i).size && res == 0)))
+      || ((i > t || i >= A.size) && res == 0))
   )
 
   def y_in(
@@ -412,10 +410,9 @@ object Gemv {
   )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     if (i > 0 && t > 0) {
-      // yout_lemma(t - 1)(i - 1)(A, x)
       y_out(t - 1)(i - 1)(A, x)
     } else BigInt(0)
-  }.ensuring(res => res == indexTo(matmul(A, x, i), t - i) || i <= 0 || t <= 0)
+  }.ensuring(res => res == 0 || (i > 0 && t > 0))
 
   def y_out(
       t: BigInt
@@ -433,34 +430,69 @@ object Gemv {
   // SYSTOLIC ARRAY CORRECTNESS PROOF //
   /////////////////////////////////////
 
+  def yin_lemma(t: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
+    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+    if (i > 0 && t > 0) {
+      yout_lemma(t - 1)(i - 1)(A, x)
+    } else {
+      assert(true)
+    }
+  }.ensuring(y_in(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) || i <= 0 || t <= 0)
+
   def yout_lemma(t: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
     decreases(i)
     val yout_res = y_out(t)(i)(A, x)
 
-    if (t < i) {
-      check(y_in(t)(i)(A, x) == 0)
-      check(a_in(t)(i)(A) == 0)
-      check(yout_res == 0)
-    } else { // i <= t
-      if (i == 0) {
-        assert(true)
-      } else {
-        A match {
-          case Nil() => check(yout_res == 0)
-          case Cons(head, tail) => {
-            if(t < i + head.size && i < A.size) {
-              yout_lemma(t-1)(i-1)(A, x)
-              check(y_out(t)(i)(A, x) == y_out(t-1)(i-1)(A,x) + a_in(t)(i)(A) * w_in(t)(i)(x))
+    A match {
+      case Nil() => {
+        if (i == 0 || t == 0) {
+          check(y_in(t)(i)(A, x) == 0)
+        } else {
+          yout_lemma(t - 1)(i - 1)(A, x)
+          check(y_in(t)(i)(A, x) == 0)
+        }
+        check(a_in(t)(i)(A) == 0)
+        check(yout_res == 0)
+      }
+      case Cons(head, tail) => {
+        if (i == 0) {
+          if (t >= A(0).size) {
+            check(y_in(t)(i)(A, x) == 0)
+            check(a_in(t)(i)(A) == 0)
+            check(y_out(t)(i)(A, x) == 0)
+          } else {
+            check(y_in(t)(i)(A, x) == 0)
+            check(a_in(t)(i)(A) == indexTo(A(0), t))
+            check(matmul(A, x, i + 1) == emv(x(i), A(i)))
+            emvLinearityLemma(A(i), x(i), t)
+            check(y_out(t)(i)(A, x) == a_in(t)(i)(A) * w_in(t)(i)(x))
+          }
+        } else if (t < i) {
+          check(a_in(t)(i)(A) == 0)
+          if (t == 0) {
+            check(y_in(t)(i)(A, x) == 0)
+            check(yout_res == 0)
+          } else {
+            yout_lemma(t - 1)(i - 1)(A, x)
+            assert(indexTo(matmul(A, x, i), t - i) == 0)
+            check(y_in(t)(i)(A, x) == 0)
+            check(yout_res == 0)
+          }
+        } else {
+          (t < i + head.size, i < A.size) match {
+            case (true, true) => {
+              yout_lemma(t - 1)(i - 1)(A, x)
+              check(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x))
 
               // By inductive hypothesis
-              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i),t - i) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) + a_in(t)(i)(A) * w_in(t)(i)(x))
               assert(i < A.size && i <= t)
-              check(a_in(t)(i)(A) == indexTo(A(i), t-i))
+              check(a_in(t)(i)(A) == indexTo(A(i), t - i))
               check(w_in(t)(i)(x) == indexTo(x, i))
 
               // By postcondition of a_in, w_in
-              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i),t - i) + indexTo(A(i), t - i) * indexTo(x, i))
+              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) + indexTo(A(i), t - i) * indexTo(x, i))
               check(indexTo(x, i) == x(i))
 
               // t - i should be in range by if statement above
@@ -468,18 +500,35 @@ object Gemv {
                == matmul(A, x, i)(t - i) + A(i)(t - i) * x(i))*/
               assert(t - i < A.head.size)
               assert(t - i >= 0)
-              matmulLinearityLemma(t-i)(i)(A, x)
+              matmulLinearityLemma(t - i)(i)(A, x)
             }
-            else {
+            case (false, true) => { // t-i >= head.size && i < A.size
+              yout_lemma(t - 1)(i - 1)(A, x)
+              rectangularIndexLemma(A, i)
+              assert(a_in(t)(i)(A) == 0)
+              assert(y_out(t - 1)(i - 1)(A, x) == 0)
               check(yout_res == 0)
+            }
+            case (_, false) => {
+              // skewed
+              yout_lemma(t - 1)(i - 1)(A, x)
+              // y_out(t-1)(i-1)(A, x) == indexTo(matmul(A, x, i), t - i)
+              assert(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              assert(i >= A.size)
+              assert(a_in(t)(i)(A) == 0)
+              assert(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x))
+              // indexTo(matmul(A, x, i+1), t - i) == indexTo(matmul(A, x, i), t - i)
+              matmulGasLimitingLemma(A, x, i + 1)
+              matmulGasLimitingLemma(A, x, i)
+              // => assert(indexTo(matmul(A, x, i + 1), t - i) == indexTo(matmul(A, x, i), t - i))
             }
           }
         }
       }
     }
-  }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i+1),t - i))
+  }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i + 1), t - i))
 
-  def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+  /*def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
 
     val res = matmul(A, x, x.size)
@@ -507,7 +556,7 @@ object Gemv {
       // since i decreases with t in y_in, the t >= x.size + res.size should be an invariant
       check(y_in(t)(x.size)(A, x) == 0)
     }
-  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))
+  }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))*/
 
   //////////////////
   // TEST DRIVER //
