@@ -73,3 +73,15 @@ libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % 
 
 // To learn more about multi-project builds, head over to the official sbt
 // documentation at http://www.scala-sbt.org/documentation.html
+
+
+/*
+
+val selectedExample = settingKey[String]("Selects which example to run")
+
+run := Def.inputTaskDyn {
+  val example = selectedExample.value
+  (runMain in Compile).toTask(s"stacomp.examples/$example")
+}.evaluated
+
+*/

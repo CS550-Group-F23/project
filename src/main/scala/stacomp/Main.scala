@@ -1,4 +1,5 @@
-import scala.collection.mutable
+package stacomp
+
 object Project {
     trait Compilable {
         def visit(sb: StringBuilder): Unit
@@ -21,17 +22,4 @@ object Project {
         }
     }
 
-    
-    def main(args: Array[String]): Unit = {
-        val s = SystolicSpec(
-            "Gemv",
-            FunctionSpec(),
-            FunctionSpec(),
-            FunctionSpec(),
-            FunctionSpec(),
-        )
-        val sb = mutable.StringBuilder()
-        s.visit(sb)
-        println(sb.toString())
-    }
 }
