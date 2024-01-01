@@ -5,8 +5,13 @@ import scala.collection.mutable
 
 object gemv {
     def main(args: Array[String]): Unit = {
+        val A = InputArray(2, "A")
+        val W = InputArray(1, "W")
+        
+
+
         val s = SystolicSpec(
-            "Gemv",
+            "gemv",
             FunctionSpec(),
             FunctionSpec(),
             FunctionSpec(),

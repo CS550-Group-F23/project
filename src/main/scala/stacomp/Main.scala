@@ -5,14 +5,23 @@ object Project {
         def visit(sb: StringBuilder): Unit
     }
 
-    case class FunctionSpec (
+    type FunctionSpec = List[(TimeSym, Expr)]
+
+    def 
+
+    case class CellSpec (
+
+    )
+
+    case class StructureSpec (
+
     )
 
     case class SystolicSpec (
         name: String,
         inputSpec: FunctionSpec,
-        behavioralSpec: FunctionSpec,
-        structuralSpec: FunctionSpec,
+        cellSpec: FunctionSpec,
+        structureSpec: FunctionSpec,
         outputSpec: FunctionSpec
     ) extends Compilable  {
         def visit(sb: StringBuilder): Unit = {
