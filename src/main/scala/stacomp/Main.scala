@@ -167,6 +167,17 @@ case class DelayedPreviousCellConnection(
   }
 }
 
+case class DelayedSelfCellConnection(
+  myPort: CellPort,
+) extends Connection {
+  def compileConnection(sb: StringBuilder, sspec: SystemSpec): Unit = {
+    // a previous cell connection is only valid after the first time step, so add another if for t
+    sb ++= s"if (t <= 0) { 0 } else {\n"
+    myPort.connectFnCall(sb, sspec, indOverrides = Map.empty, Some("t - 1"))
+    sb ++= "\n}"
+  }
+}
+
 case class ConnSpec(
   connections: List[(CellPort, Connection)]
 ) {
