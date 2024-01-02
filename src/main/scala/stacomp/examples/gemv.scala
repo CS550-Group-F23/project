@@ -10,20 +10,22 @@ object gemv {
     val A = InputArray(2, "A")
     val W = InputArray(1, "W")
 
-    // sval a_in = CellPort("a_in")
-    // val w_in = CellPort("w_in")
     val y_in = CellPort("y_in")
     val y_out = CellPort("y_out")
 
     val a_in = SysPort(
       name = "a_in",
-      schedule = Schedule((Until(i), DontCare), (Until(i + A(i).size), A(i)(T - i)), (Henceforth, 0.E)),
+      schedule = Schedule(
+        Until(i) -> DontCare,
+        Until(i + A(i).size) -> A(i)(T - i),
+        Henceforth -> 0.E
+      ),
       indexConstraints = List(A.size > 0.E, i < A.size),
       defaultValue = 0.E
     )
     val w_in = SysPort(
       name = "w_in",
-      schedule = Schedule((Henceforth, W(i))),
+      schedule = Schedule(Henceforth -> W(i)),
       indexConstraints = List(i < W.size),
       defaultValue = 0.E
     )
@@ -35,7 +37,10 @@ object gemv {
       ),
       CellSpec(
         List(a_in, w_in, y_in),
-        List((y_out, MACExpr(y_in, a_in, w_in)))
+        List(y_out -> (y_in + a_in * w_in))
+      ),
+      ConnSpec(
+        List(y_in -> DelayedPreviousCellConnection(i, y_out, ConstantPort(0)))
       )
     )
 

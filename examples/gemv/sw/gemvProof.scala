@@ -321,10 +321,14 @@ object gemvProof {
 
   def yin_lemma(t: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    if (i > 0 && t > 0) {
-      yout_lemma(t - 1)(i - 1)(A, x)
-    } else {
+    if (i == 0) {
       assert(true)
+    } else {
+      if (t <= 0) {
+        assert(true)
+      } else {
+        yout_lemma(t - 1)(i - 1)(A, x)
+      }
     }
   }.ensuring(y_in(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) || i <= 0 || t <= 0)
 
@@ -341,24 +345,24 @@ object gemvProof {
           yout_lemma(t - 1)(i - 1)(A, x)
           check(y_in(t)(i)(A, x) == 0)
         }
-        check(a_in(t)(i)(A) == 0)
+        check(a_in(t)(i)(A,x) == 0)
         check(yout_res == 0)
       }
       case Cons(head, tail) => {
         if (i == 0) {
           if (t >= A(0).size) {
             check(y_in(t)(i)(A, x) == 0)
-            check(a_in(t)(i)(A) == 0)
+            check(a_in(t)(i)(A,x) == 0)
             check(y_out(t)(i)(A, x) == 0)
           } else {
             check(y_in(t)(i)(A, x) == 0)
-            check(a_in(t)(i)(A) == indexTo(A(0), t))
+            check(a_in(t)(i)(A,x) == indexTo(A(0), t))
             check(matmul(A, x, i + 1) == emv(x(i), A(i)))
             emvLinearityLemma(A(i), x(i), t)
-            check(y_out(t)(i)(A, x) == a_in(t)(i)(A) * w_in(t)(i)(x))
+            check(y_out(t)(i)(A, x) == a_in(t)(i)(A,x) * w_in(t)(i)(A,x))
           }
         } else if (t < i) {
-          check(a_in(t)(i)(A) == 0)
+          check(a_in(t)(i)(A,x) == 0)
           if (t == 0) {
             check(y_in(t)(i)(A, x) == 0)
             check(yout_res == 0)
@@ -372,13 +376,13 @@ object gemvProof {
           (t < i + head.size, i < A.size) match {
             case (true, true) => {
               yout_lemma(t - 1)(i - 1)(A, x)
-              check(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              check(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x) + a_in(t)(i)(A,x) * w_in(t)(i)(A,x))
 
               // By inductive hypothesis
-              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) + a_in(t)(i)(A,x) * w_in(t)(i)(A,x))
               assert(i < A.size && i <= t)
-              check(a_in(t)(i)(A) == indexTo(A(i), t - i))
-              check(w_in(t)(i)(x) == indexTo(x, i))
+              check(a_in(t)(i)(A,x) == indexTo(A(i), t - i))
+              check(w_in(t)(i)(A,x) == indexTo(x, i))
 
               // By postcondition of a_in, w_in
               check(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) + indexTo(A(i), t - i) * indexTo(x, i))
@@ -394,7 +398,7 @@ object gemvProof {
             case (false, true) => { // t-i >= head.size && i < A.size
               yout_lemma(t - 1)(i - 1)(A, x)
               rectangularIndexLemma(A, i)
-              assert(a_in(t)(i)(A) == 0)
+              assert(a_in(t)(i)(A,x) == 0)
               assert(y_out(t - 1)(i - 1)(A, x) == 0)
               check(yout_res == 0)
             }
@@ -402,9 +406,9 @@ object gemvProof {
               // skewed
               yout_lemma(t - 1)(i - 1)(A, x)
               // y_out(t-1)(i-1)(A, x) == indexTo(matmul(A, x, i), t - i)
-              assert(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x))
+              assert(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x) + a_in(t)(i)(A,x) * w_in(t)(i)(A,x))
               assert(i >= A.size)
-              assert(a_in(t)(i)(A) == 0)
+              assert(a_in(t)(i)(A,x) == 0)
               assert(y_out(t)(i)(A, x) == y_out(t - 1)(i - 1)(A, x))
               // indexTo(matmul(A, x, i+1), t - i) == indexTo(matmul(A, x, i), t - i)
               matmulGasLimitingLemma(A, x, i + 1)

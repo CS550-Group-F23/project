@@ -73,61 +73,36 @@ object gemv {
   }
   }.ensuring(res => (index >= 0 && index < A.size && res == A(index)) || ((index < 0 || index >= A.size) && res == 0))
 
-  def w_in(t: BigInt)(i: BigInt)(x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0 && x.size >= 0)
-    decreases(i)
-
-    if (i >= x.size) BigInt(0)
-    else if (i == 0) x.head
-    else w_in(t)(i - 1)(x.tail)
-  }.ensuring(res => res == indexTo(x, i))
-
-  /*
-  def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
-    require(t >= 0 && i >= 0 && A.size >= 0)
-    decreases(i)
-
-    A match {
-      case Nil() => BigInt(0)
-      case Cons(a, aa) => {
-        if (i == 0) indexTo(a, t)
-        else if (i >= A.size || t == 0) BigInt(0)
-        else a_in(t - 1)(i - 1)(aa)
-      }
-    }
-  }.ensuring(res =>
-    // If-Then-Else(i <= t && i < A.size && t-i < A.head.size, res == indexTo(A(i), t-i)) && ite(t-i < A(i).size, true, res == 0), res == 0)
-    ((i <= t && i < A.size && res == indexTo(A(i), t - i) && ((t - i < A(i).size) || (t - i >= A(i).size && res == 0)))
-      || ((i > t || i >= A.size) && res == 0))
-  )*/
-  def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
-  require(t >= 0 && i >= 0)
-  if (!(0<A.size) || !(i<A.size)) { 0 } else {
-  if (t < i) {
-  0
-  } else if (t < i+A(i).size) {
-  A(i)(t-i)
-  } else {
-  0
-  } 
-  }
-  }
-
-  def y_in(
-      t: BigInt
-  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    if (i > 0 && t > 0) {
-      y_out(t - 1)(i - 1)(A, x)
-    } else BigInt(0)
-  }.ensuring(res => res == 0 || (i > 0 && t > 0))
-
-  def y_out(
-      t: BigInt
-  )(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
-    y_in(t)(i)(A, x) + a_in(t)(i)(A) * w_in(t)(i)(x)
-  }
+  def y_out(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
+require((i >= 0) && (t >= 0) && matrixSizeCheck(A,W))
+y_in(t)(i)(A,W)+a_in(t)(i)(A,W)*w_in(t)(i)(A,W)
+}
+def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
+require((i >= 0) && (t >= 0))
+if (!(0<A.size) || !(i<A.size)) { 0 } else {
+if (t < i) {
+0
+} else if (t < i+A(i).size) {
+A(i)(t-i)
+} else {
+0
+} 
+}
+}
+def w_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
+require((i >= 0) && (t >= 0))
+if (!(i<W.size)) { 0 } else {
+W(i)
+}
+}
+def y_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
+require((i >= 0) && (t >= 0) && matrixSizeCheck(A,W))
+if (i == 0) { 0 } else {
+if (t <= 0) { 0 } else {
+y_out(t - 1)(i - 1)(A,W)
+}
+}
+}
 
   def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
     require(t >= 0 && matrixSizeCheck(A, x))

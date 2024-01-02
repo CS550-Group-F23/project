@@ -73,12 +73,17 @@ case class SystemSpec(
 ) {
   require(this.indices.length > 0)
   require(this.arrays.length > 0)
-  def genFnSignature(sb: StringBuilder, fnname: String) = {
+  def genFnSignature(sb: StringBuilder, fnname: String): Unit = {
     sb ++= s"def $fnname(t: BigInt)("
     sb ++= this.indices.map(ind => s"${ind.name}: BigInt").mkString(", ")
     sb ++= ")("
     sb ++= this.arrays.map(arr => s"${arr.name}: " + "List[".repeat(arr.dims) + "BigInt" + "]".repeat(arr.dims)).mkString(", ")
-    sb ++= "): BigInt = {\n"
+    sb ++= "): BigInt = {\nrequire("
+    sb ++= this.indices.map(ind => s"(${ind.name} >= 0) && ").mkString
+    // TODO: hack with matrixSizeCheck
+    sb ++= "(t >= 0) && matrixSizeCheck("
+    sb ++= this.arrays.map(arr => arr.name).mkString(",")
+    sb ++= "))\n"
   }
 }
 
@@ -86,11 +91,20 @@ case class SystemSpec(
 // CELL SPECIFICATION //
 ///////////////////////
 
-sealed trait CellOrSysPort extends Expr {
+sealed trait CellOrSysPort extends PortLike {
   def getName(): String
-  override def visit(sb: StringBuilder, sspec: SystemSpec): Unit = {
-    sb ++= s"${getName()}(t)("
-    sb ++= sspec.indices.map(ind => ind.name).mkString(",")
+  // override thing is definitely a hack
+  def connectFnCall(sb: StringBuilder, sspec: SystemSpec, indOverrides: Map[SysIndex, String], tOverride: Option[String]): Unit = {
+    tOverride match
+      case None => sb ++= s"${getName()}(t)("
+      case Some(value) => sb ++= s"${getName()}($value)("
+  
+
+    sb ++= sspec.indices.map(ind => {
+      indOverrides.get(ind) match
+        case None => ind.name
+        case Some(value) => value
+    }).mkString(",")
     sb ++= ")("
     sb ++= sspec.arrays.map(arr => arr.name).mkString(",")
     sb ++= ")"
@@ -116,11 +130,52 @@ case class CellSpec(
   }
 }
 
+///////////////////////////////
+// CONNECTION SPECIFICATION //
+/////////////////////////////
+
+case class ConstantPort(
+  value: Int
+) extends PortLike {
+  def connectFnCall(sb: StringBuilder, sspec: SystemSpec, indOverrides: Map[SysIndex, String], tOverride: Option[String]): Unit = sb ++= s"$value"
+}
+
+sealed trait PortLike extends Expr {
+  def connectFnCall(sb: StringBuilder, sspec: SystemSpec, indOverrides: Map[SysIndex, String], tOverride: Option[String]): Unit
+  override def visit(sb: StringBuilder, sspec: SystemSpec): Unit = {
+    connectFnCall(sb, sspec, indOverrides = Map.empty, None)
+  }
+}
+
+trait Connection() {
+  def compileConnection(sb: StringBuilder, sspec: SystemSpec): Unit
+}
+
+case class DelayedPreviousCellConnection(
+  ind: SysIndex,
+  previousPort: CellPort,
+  basePort: PortLike
+) extends Connection {
+  def compileConnection(sb: StringBuilder, sspec: SystemSpec): Unit = {
+    sb ++= s"if (${ind.name} == 0) { "
+    basePort.connectFnCall(sb, sspec, indOverrides = Map.apply(ind -> "0"), None)
+    sb ++=" } else {\n"
+    // a previous cell connection is only valid after the first time step, so add another if for t
+    sb ++= s"if (t <= 0) { 0 } else {\n"
+    previousPort.connectFnCall(sb, sspec, indOverrides = Map.apply(ind -> s"${ind.name} - 1"), Some("t - 1"))
+    sb ++= "\n}\n}"
+  }
+}
+
 case class ConnSpec(
-    connections: Map[CellPort, String]
+  connections: List[(CellPort, Connection)]
 ) {
-  def compileInputFns(sb: StringBuilder, sspec: SystemSpec): Unit = {
-    // for ((port, ))
+  def compileCellInputFns(sb: StringBuilder, sspec: SystemSpec): Unit = {
+    for ((port, conn) <- connections) {
+      sspec.genFnSignature(sb, port.name)
+      conn.compileConnection(sb, sspec)
+      sb ++= "\n}\n"
+    }
   }
 }
 
@@ -245,8 +300,8 @@ case class InputSpec(
 case class SystolicSpec(
     systemSpec: SystemSpec,
     inputSpec: InputSpec,
-    cellSpec: CellSpec
-    // connSpec: ConnSpec
+    cellSpec: CellSpec,
+    connSpec: ConnSpec
 ) {
   def compileStainless(): String = {
     val sb = mutable.StringBuilder()
@@ -263,7 +318,7 @@ import stainless.proof.check"""
 
     inputSpec.compileSysInputFns(sb, systemSpec)
 
-    // connSpec.compileCellInputFns(sb, systemSpec)
+    connSpec.compileCellInputFns(sb, systemSpec)
 
     sb ++= s"}"
 

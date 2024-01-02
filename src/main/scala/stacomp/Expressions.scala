@@ -4,6 +4,7 @@ trait Expr {
     def visit(sb: StringBuilder, sspec: SystemSpec): Unit
     def -(that: Expr): Expr = MinusExpr(this, that)
     def +(that: Expr): Expr = PlusExpr(this, that)
+    def *(that: Expr): Expr = MulExpr(this, that)
     def <(that: Expr): IndConstraint = IndConstraint.Lt(this, that)
     def >(that: Expr): IndConstraint = IndConstraint.Lt(that, this)
     def <=(that: Expr): IndConstraint = IndConstraint.Leq(this, that)
@@ -53,6 +54,17 @@ case class PlusExpr(
     }
 }
 
+case class MulExpr(
+    e1: Expr,
+    e2: Expr
+) extends Expr {
+    def visit(sb: StringBuilder, sspec: SystemSpec): Unit = {
+        e1.visit(sb, sspec)
+        sb ++= "*"
+        e2.visit(sb, sspec)
+    }
+}
+
 case class ArraySizeExpr(
     dims: Int,
     name: String,
@@ -71,18 +83,4 @@ case class ArraySizeExpr(
 
 case object DontCare extends Expr {
     def visit(sb: StringBuilder, sspec: SystemSpec): Unit = sb ++= "0"
-}
-
-case class MACExpr(
-    a: Expr,
-    m1: Expr,
-    m2: Expr
-) extends Expr {
-    def visit(sb: StringBuilder, sspec: SystemSpec): Unit = {
-        a.visit(sb, sspec)
-        sb ++= " + "
-        m1.visit(sb, sspec)
-        sb ++= " * "
-        m2.visit(sb, sspec)
-    }
 }
