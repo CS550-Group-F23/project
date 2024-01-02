@@ -82,6 +82,7 @@ object gemv {
     else w_in(t)(i - 1)(x.tail)
   }.ensuring(res => res == indexTo(x, i))
 
+  /*
   def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
     require(t >= 0 && i >= 0 && A.size >= 0)
     decreases(i)
@@ -98,7 +99,19 @@ object gemv {
     // If-Then-Else(i <= t && i < A.size && t-i < A.head.size, res == indexTo(A(i), t-i)) && ite(t-i < A(i).size, true, res == 0), res == 0)
     ((i <= t && i < A.size && res == indexTo(A(i), t - i) && ((t - i < A(i).size) || (t - i >= A(i).size && res == 0)))
       || ((i > t || i >= A.size) && res == 0))
-  )
+  )*/
+  def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]]): BigInt = {
+  require(t >= 0 && i >= 0)
+  if (!(0<A.size) || !(i<A.size)) { 0 } else {
+  if (t < i) {
+  0
+  } else if (t < i+A(i).size) {
+  A(i)(t-i)
+  } else {
+  0
+  } 
+  }
+  }
 
   def y_in(
       t: BigInt
