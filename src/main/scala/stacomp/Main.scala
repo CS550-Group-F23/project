@@ -80,8 +80,8 @@ case class SystemSpec(
     sb ++= this.arrays.map(arr => s"${arr.name}: " + "List[".repeat(arr.dims) + "BigInt" + "]".repeat(arr.dims)).mkString(", ")
     sb ++= "): BigInt = {\nrequire("
     sb ++= this.indices.map(ind => s"(${ind.name} >= 0) && ").mkString
-    // TODO: hack with matrixSizeCheck
-    sb ++= "(t >= 0) && matrixSizeCheck("
+    // TODO: hack with inputArraysCheck implemented by user
+    sb ++= "(t >= 0) && inputArraysCheck("
     sb ++= this.arrays.map(arr => arr.name).mkString(",")
     sb ++= "))\n"
   }
@@ -317,12 +317,13 @@ case class SystolicSpec(
   def compileStainless(): String = {
     val sb = mutable.StringBuilder()
 
-    sb ++= """import stainless.lang.*
+    sb ++= s"""import stainless.lang.*
 import stainless.annotation.*
 import stainless.collection.*
-import stainless.proof.check"""
+import stainless.proof.check
+import ${systemSpec.name}Ref.inputArraysCheck"""
 
-    sb ++= s"\n\nobject ${systemSpec.name} {\n"
+    sb ++= s"\n\nobject ${systemSpec.name}Impl {\n"
 
     // Compile functions for output ports of cells
     cellSpec.compileOutputFns(sb, systemSpec)

@@ -7,7 +7,7 @@ import stainless.annotation.*
 import stainless.collection.*
 import stainless.proof.check
 
-object gemv {
+object gemvRef {
   def isRectangular(A: List[List[BigInt]]): Boolean = {
     A match {
       case Cons(head, Nil()) => true
@@ -16,7 +16,7 @@ object gemv {
       case Nil() => true
     }
   }
-  def matrixSizeCheck(A: List[List[BigInt]], x: List[BigInt]): Boolean = {
+  def inputArraysCheck(A: List[List[BigInt]], x: List[BigInt]): Boolean = {
     A.size == x.size && isRectangular(A)
   }
 
@@ -42,7 +42,7 @@ object gemv {
       X: List[BigInt],
       gas: BigInt
   ): List[BigInt] = {
-  require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && gas >= 0)
+  require(A.size >= 0 && X.size >= 0 && inputArraysCheck(A, X) && gas >= 0)
   decreases(gas)
 
   if (gas > 0) {
@@ -72,40 +72,4 @@ object gemv {
     }
   }
   }.ensuring(res => (index >= 0 && index < A.size && res == A(index)) || ((index < 0 || index >= A.size) && res == 0))
-
-  def y_out(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
-require((i >= 0) && (t >= 0) && matrixSizeCheck(A,W))
-y_in(t)(i)(A,W)+a_in(t)(i)(A,W)*w_in(t)(i)(A,W)
-}
-def a_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
-require((i >= 0) && (t >= 0))
-if (!(0<A.size) || !(i<A.size)) { 0 } else {
-if (t < i) {
-0
-} else if (t < i+A(i).size) {
-A(i)(t-i)
-} else {
-0
-} 
-}
-}
-def w_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
-require((i >= 0) && (t >= 0))
-if (!(i<W.size)) { 0 } else {
-W(i)
-}
-}
-def y_in(t: BigInt)(i: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
-require((i >= 0) && (t >= 0) && matrixSizeCheck(A,W))
-if (i == 0) { 0 } else {
-if (t <= 0) { 0 } else {
-y_out(t - 1)(i - 1)(A,W)
-}
-}
-}
-
-  def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && matrixSizeCheck(A, x))
-    y_in(t)(x.size)(A, x)
-  }
 }

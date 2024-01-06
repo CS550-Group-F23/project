@@ -5,7 +5,7 @@ exampleDir = examples/$(EXAMPLE)/
 all: verify
 
 
-verify: $(exampleDir)/sw/$(EXAMPLE)Impl.scala $(exampleDir)/sw/$(EXAMPLE)Proof.scala
+verify: $(exampleDir)/sw/$(EXAMPLE)Impl.scala $(exampleDir)/sw/$(EXAMPLE)Ref.scala $(exampleDir)/sw/$(EXAMPLE)Proof.scala
 	stainless $^
 
 compile: $(exampleDir)/sw/$(EXAMPLE)Impl.scala

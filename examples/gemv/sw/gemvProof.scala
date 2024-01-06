@@ -7,10 +7,10 @@ import stainless.annotation.*
 import stainless.collection.*
 import stainless.proof.check
 
-import gemv.*
+import gemvImpl.*
+import gemvRef.*
 
 object gemvProof {
-
   //////////////////////////////////////
   // GENERIC LIST HELPERS/PROPERTIES //
   ////////////////////////////////////
@@ -185,7 +185,7 @@ object gemvProof {
       X: List[BigInt],
       gas: BigInt
   ): Unit = {
-    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && gas >= 0)
+    require(A.size >= 0 && X.size >= 0 && inputArraysCheck(A, X) && gas >= 0)
     decreases(gas)
 
     check(A.take(gas).size == X.take(gas).size)
@@ -220,7 +220,7 @@ object gemvProof {
       X: List[BigInt],
       gas: BigInt
   ): Unit = {
-    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X))
+    require(A.size >= 0 && X.size >= 0 && inputArraysCheck(A, X))
     require(gas >= A.size)
     (A, X) match {
       case (Nil(), Nil()) => {
@@ -245,7 +245,7 @@ object gemvProof {
       an: List[BigInt],
       xn: BigInt
   ): Unit = {
-    require(A.size >= 0 && X.size >= 0 && matrixSizeCheck(A, X) && gas >= 0)
+    require(A.size >= 0 && X.size >= 0 && inputArraysCheck(A, X) && gas >= 0)
     require(A.size == 0 || A.head.size == an.size)
     require(gas > A.size)
 
@@ -269,7 +269,7 @@ object gemvProof {
 
   def matmulAddRowLemma(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(i > 0 && i < A.size)
-    require(A.size > 0 && x.size > 0 && matrixSizeCheck(A, x))
+    require(A.size > 0 && x.size > 0 && inputArraysCheck(A, x))
 
     // 1. Taking the first i elements is equivalent if the gas is i.
     // matmul(A,x,i) == matmul(A.take(i), x.take(i), i)
@@ -301,7 +301,7 @@ object gemvProof {
   def matmulLinearityLemma(j: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
     require(i > 0 && i < A.size)
     require(j >= 0 && j < A.head.size) // correct?
-    require(A.size > 0 && x.size > 0 && matrixSizeCheck(A, x))
+    require(A.size > 0 && x.size > 0 && inputArraysCheck(A, x))
 
     matmulAddRowLemma(i)(A, x)
     assert(addVector(matmul(A, x, i), emv(x(i), A(i)))(j) == matmul(A, x, i + 1)(j))
@@ -311,16 +311,12 @@ object gemvProof {
     assert(A(i)(j) == indexTo(A(i), j))
   }.ensuring(indexTo(matmul(A, x, i), j) + indexTo(A(i), j) * x(i) == indexTo(matmul(A, x, i + 1), j))
 
-  ////////////////////////////////////
-  // SYSTOLIC ARRAY IMPLEMENTATION //
-  //////////////////////////////////
-
   ///////////////////////////////////////
   // SYSTOLIC ARRAY CORRECTNESS PROOF //
   /////////////////////////////////////
 
   def yin_lemma(t: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+    require(t >= 0 && i >= 0 && inputArraysCheck(A, x))
     if (i == 0) {
       assert(true)
     } else {
@@ -333,7 +329,7 @@ object gemvProof {
   }.ensuring(y_in(t)(i)(A, x) == indexTo(matmul(A, x, i), t - i) || i <= 0 || t <= 0)
 
   def yout_lemma(t: BigInt)(i: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
-    require(t >= 0 && i >= 0 && matrixSizeCheck(A, x))
+    require(t >= 0 && i >= 0 && inputArraysCheck(A, x))
     decreases(i)
     val yout_res = y_out(t)(i)(A, x)
 
@@ -421,8 +417,13 @@ object gemvProof {
     }
   }.ensuring(y_out(t)(i)(A, x) == indexTo(matmul(A, x, i + 1), t - i))
 
+  def output(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
+    require(t >= 0 && inputArraysCheck(A, x))
+    y_in(t)(x.size)(A, x)
+  }
+
   def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
+    require(t >= 0 && A.size >= 0 && inputArraysCheck(A, x))
 
     val res = matmul(A, x, x.size)
 
@@ -432,7 +433,7 @@ object gemvProof {
   }
 
   def verifyOutput(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
-    require(t >= 0 && A.size >= 0 && matrixSizeCheck(A, x))
+    require(t >= 0 && A.size >= 0 && inputArraysCheck(A, x))
 
     yin_lemma(t)(x.size)(A, x)
   }.ensuring(output(t)(A, x) == outputSpec(t)(A, x))
