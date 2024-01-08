@@ -4,3 +4,9 @@
 [submodule "doc/bg_review"]
 	path = doc/bg_review
 	url = https://github.com/CS550-Group-F23/bg_review.git
+[submodule "doc/report"]
+	path = doc/report
+	url = https://github.com/CS550-Group-F23/report.git
+[submodule "doc/presentation"]
+	path = doc/presentation
+	url = https://github.com/CS550-Group-F23/presentation.git
