@@ -422,14 +422,18 @@ object gemvProof {
     y_in(t)(x.size)(A, x)
   }
 
-  def outputSpec(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): BigInt = {
-    require(t >= 0 && A.size >= 0 && inputArraysCheck(A, x))
+  def outputSpec(t: BigInt)(A: List[List[BigInt]], W: List[BigInt]): BigInt = {
+    require((t >= 0) && inputArraysCheck(A, W))
 
-    val res = matmul(A, x, x.size)
+    val res = matmul(A, W, W.size)
 
-    if (t < x.size) 0
-    else if (t - x.size < res.size) indexTo(res, t - x.size)
-    else 0
+    if (t < W.size) {
+      0
+    } else if (t - W.size < res.size) {
+      res(t - W.size)
+    } else {
+      0
+    } 
   }
 
   def verifyOutput(t: BigInt)(A: List[List[BigInt]], x: List[BigInt]): Unit = {
